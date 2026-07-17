@@ -5,104 +5,78 @@ layout: page
 
 {% include lang.html %}
 
-
 <style>
   /*
-   * 文件夹页签独立显示层：
-   * 页签始终位于所有文件夹纸页上方，文件夹升起时不会再遮住其它页签。
-   * 原文件夹排版与定位不做任何覆盖，避免纸页被改成横向并排。
+   * 保留主题原本的“多张内容页完全叠放”结构，只增强页签本身。
+   * 页签向上增高，底边位置保持不变，因此内容框不会被下推。
    */
-  .category-folders {
-    position: relative;
-    overflow: visible;
-  }
+  .category-folder-tab.category-folder-tab--enhanced {
+    box-sizing: border-box !important;
+    height: calc(var(--folder-tab-base-height) + var(--folder-tab-extra-height)) !important;
+    padding-bottom: calc(var(--folder-tab-base-padding-bottom) + var(--folder-tab-extra-height)) !important;
+    margin-bottom: calc(var(--folder-tab-base-margin-bottom) - var(--folder-tab-extra-height)) !important;
+    translate: var(--folder-tab-shift-x, 0px) calc(0px - var(--folder-tab-extra-height));
 
-  .category-folder-tabs-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 2147483000;
-    overflow: visible;
-    pointer-events: none;
-  }
-
-  .category-folder-tab--source-hidden {
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
-
-  .category-folder-tabs-overlay .category-folder-tab-proxy,
-  .category-folder-tabs-overlay .category-folder-tab-proxy:link,
-  .category-folder-tabs-overlay .category-folder-tab-proxy:visited,
-  .category-folder-tabs-overlay .category-folder-tab-proxy:hover,
-  .category-folder-tabs-overlay .category-folder-tab-proxy:focus,
-  .category-folder-tabs-overlay .category-folder-tab-proxy:focus-visible,
-  .category-folder-tabs-overlay .category-folder-tab-proxy:active {
-    position: absolute;
-    display: inline-flex;
-    align-items: center;
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
     text-decoration: none !important;
-    white-space: nowrap;
-    pointer-events: auto;
-    box-sizing: border-box;
-    isolation: isolate;
 
-    /* 边框、内高光与右侧投影共同形成真实文件夹叠放边缘。 */
-    border: 1px solid rgba(52, 39, 34, 0.30) !important;
-    border-bottom-color: rgba(52, 39, 34, 0.44) !important;
+    border: 1px solid rgba(54, 42, 38, 0.32) !important;
+    border-bottom-color: rgba(54, 42, 38, 0.48) !important;
     box-shadow:
-      4px -2px 7px rgba(35, 24, 21, 0.17),
-      0 1px 0 rgba(255, 255, 255, 0.24) inset,
-      1px 0 0 rgba(255, 255, 255, 0.13) inset,
-      -1px 0 0 rgba(35, 24, 21, 0.09) inset;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.17);
-    transition:
-      top 260ms cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 180ms ease;
+      4px -2px 8px rgba(37, 27, 24, 0.19),
+      inset 0 1px 0 rgba(255, 255, 255, 0.24),
+      inset 1px 0 0 rgba(255, 255, 255, 0.10),
+      inset -1px 0 0 rgba(37, 27, 24, 0.09);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.16);
+    isolation: isolate;
   }
 
-  .category-folder-tabs-overlay .category-folder-tab-proxy::after {
-    content: "";
-    position: absolute;
-    top: 6px;
-    right: -7px;
-    bottom: -1px;
-    width: 10px;
-    z-index: -1;
-    background: inherit;
-    border-top: 1px solid rgba(255, 255, 255, 0.11);
-    border-right: 1px solid rgba(52, 39, 34, 0.26);
-    border-bottom: 1px solid rgba(52, 39, 34, 0.36);
-    border-radius: 0 5px 2px 0;
-    transform: skewX(7deg);
-    box-shadow: 4px -1px 6px rgba(35, 24, 21, 0.14);
+  .category-folder-tab.category-folder-tab--enhanced:link,
+  .category-folder-tab.category-folder-tab--enhanced:visited,
+  .category-folder-tab.category-folder-tab--enhanced:hover,
+  .category-folder-tab.category-folder-tab--enhanced:focus,
+  .category-folder-tab.category-folder-tab--enhanced:focus-visible,
+  .category-folder-tab.category-folder-tab--enhanced:active,
+  .category-folder:hover .category-folder-tab.category-folder-tab--enhanced,
+  .category-folder:focus-within .category-folder-tab.category-folder-tab--enhanced,
+  .category-folder[data-folder-layer-state="raised"] .category-folder-tab.category-folder-tab--enhanced,
+  .category-folder[data-folder-layer-state="lowering"] .category-folder-tab.category-folder-tab--enhanced {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    text-decoration: none !important;
   }
 
-  .category-folder-tabs-overlay .category-folder-tab-proxy > i,
-  .category-folder-tabs-overlay .category-folder-tab-proxy > i::before,
-  .category-folder-tabs-overlay .category-folder-tab-proxy > span {
+  .category-folder-tab.category-folder-tab--enhanced > i,
+  .category-folder-tab.category-folder-tab--enhanced > i::before,
+  .category-folder-tab.category-folder-tab--enhanced > span,
+  .category-folder:hover .category-folder-tab.category-folder-tab--enhanced > i,
+  .category-folder:hover .category-folder-tab.category-folder-tab--enhanced > i::before,
+  .category-folder:hover .category-folder-tab.category-folder-tab--enhanced > span,
+  .category-folder:focus-within .category-folder-tab.category-folder-tab--enhanced > i,
+  .category-folder:focus-within .category-folder-tab.category-folder-tab--enhanced > i::before,
+  .category-folder:focus-within .category-folder-tab.category-folder-tab--enhanced > span {
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
   }
 
-  .category-folder-tabs-overlay .category-folder-tab-proxy:hover,
-  .category-folder-tabs-overlay .category-folder-tab-proxy:focus-visible,
-  .category-folder-tabs-overlay .category-folder-tab-proxy.is-active {
+  .category-folder-tab.category-folder-tab--enhanced:hover,
+  .category-folder-tab.category-folder-tab--enhanced:focus-visible,
+  .category-folder[data-folder-layer-state="raised"] .category-folder-tab.category-folder-tab--enhanced {
     box-shadow:
-      6px -3px 11px rgba(35, 24, 21, 0.23),
-      0 1px 0 rgba(255, 255, 255, 0.28) inset,
-      1px 0 0 rgba(255, 255, 255, 0.16) inset,
-      -1px 0 0 rgba(35, 24, 21, 0.11) inset;
-    outline: none;
+      6px -3px 11px rgba(37, 27, 24, 0.24),
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 1px 0 0 rgba(255, 255, 255, 0.13),
+      inset -1px 0 0 rgba(37, 27, 24, 0.11);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .category-folder-tabs-overlay .category-folder-tab-proxy {
-      transition: none;
+    .category-folder-tab.category-folder-tab--enhanced {
+      transition: none !important;
     }
   }
 </style>
+
 
 {% assign sort_categories = site.categories | sort %}
 {% assign folder_count = 0 %}
@@ -191,137 +165,106 @@ layout: page
     var folders = Array.prototype.slice.call(
       container.querySelectorAll('.category-folder')
     );
-    if (!folders.length) return;
-
-    var sourceTabs = folders.map(function (folder) {
+    var tabs = folders.map(function (folder) {
       return folder.querySelector('.category-folder-tab');
     });
-    if (sourceTabs.some(function (tab) { return !tab; })) return;
 
-    var overlay = document.createElement('div');
-    overlay.className = 'category-folder-tabs-overlay';
-    overlay.setAttribute('aria-label', '分类文件夹标签');
-    container.appendChild(overlay);
+    if (!folders.length || tabs.some(function (tab) { return !tab; })) return;
 
+    /*
+     * 页签额外向上增加的高度。
+     * 内容页升起约 20px 时，仍能完整露出其余页签的文字和图标。
+     * 这里只增高页签并用负 margin 抵消布局高度，不移动内容框。
+     */
+    var extraTabHeight = 26;
+    var topLayer = 10000 + folders.length;
     var states = new WeakMap();
-    var proxies = [];
-    var topFolderLayer = 10000 + folders.length;
     var layoutFrame = null;
 
-    function copyVisualStyle(source, proxy) {
-      var style = window.getComputedStyle(source);
-      var properties = [
-        'background', 'backgroundColor', 'backgroundImage',
-        'backgroundPosition', 'backgroundSize', 'backgroundRepeat',
-        'borderRadius', 'paddingTop', 'paddingRight',
-        'paddingBottom', 'paddingLeft', 'gap',
-        'fontFamily', 'fontSize', 'fontStyle', 'fontWeight',
-        'letterSpacing', 'lineHeight', 'textTransform'
-      ];
+    tabs.forEach(function (tab) {
+      var style = window.getComputedStyle(tab);
+      var rect = tab.getBoundingClientRect();
+      var paddingBottom = parseFloat(style.paddingBottom) || 0;
+      var marginBottom = parseFloat(style.marginBottom) || 0;
 
-      properties.forEach(function (property) {
-        var value = style[property];
-        if (value) proxy.style[property] = value;
-      });
-    }
+      tab.style.setProperty('--folder-tab-base-height', rect.height + 'px');
+      tab.style.setProperty('--folder-tab-base-padding-bottom', paddingBottom + 'px');
+      tab.style.setProperty('--folder-tab-base-margin-bottom', marginBottom + 'px');
+      tab.style.setProperty('--folder-tab-extra-height', extraTabHeight + 'px');
+      tab.style.setProperty('--folder-tab-shift-x', '0px');
+      tab.classList.add('category-folder-tab--enhanced');
+    });
 
     function getState(folder) {
       var state = states.get(folder);
       if (state) return state;
 
-      var computed = window.getComputedStyle(folder);
-      var baseTransform = computed.transform;
-      var transition = computed.transition;
-
-      /*
-       * 固定文件夹静止时的原始 transform，避免主题自带 :hover 位移与
-       * 本脚本的独立 translate 动画叠加。不会修改 position/display 等布局属性。
-       */
-      folder.style.transform =
-        baseTransform && baseTransform !== 'none' ? baseTransform : 'none';
-
-      folder.style.transition =
-        (transition && transition !== 'all 0s ease 0s' ? transition + ', ' : '') +
-        'translate 280ms cubic-bezier(0.22, 1, 0.36, 1)';
-      folder.style.translate = '0 0';
-
       state = {
         originalInlineZIndex: folder.style.zIndex,
-        lowerTimer: null,
-        transitionTimer: null,
-        proxy: null
+        resetTimer: null
       };
       states.set(folder, state);
       return state;
     }
 
-    sourceTabs.forEach(function (source, index) {
-      var folder = folders[index];
-      var rect = source.getBoundingClientRect();
-      var proxy = source.cloneNode(true);
-
-      proxy.classList.add('category-folder-tab-proxy');
-      proxy.removeAttribute('id');
-      proxy.removeAttribute('aria-hidden');
-      proxy.dataset.folderIndex = String(index);
-      proxy.style.width = rect.width + 'px';
-      proxy.style.height = rect.height + 'px';
-      proxy.style.color = '#fff';
-      proxy.style.webkitTextFillColor = '#fff';
-
-      copyVisualStyle(source, proxy);
-      overlay.appendChild(proxy);
-      proxies.push(proxy);
-
-      source.classList.add('category-folder-tab--source-hidden');
-      source.setAttribute('aria-hidden', 'true');
-      source.setAttribute('tabindex', '-1');
-
-      getState(folder).proxy = proxy;
-    });
-
-    function clearTimer(state, key) {
-      if (state[key] !== null) {
-        window.clearTimeout(state[key]);
-        state[key] = null;
+    function clearReset(folder) {
+      var state = getState(folder);
+      if (state.resetTimer !== null) {
+        window.clearTimeout(state.resetTimer);
+        state.resetTimer = null;
       }
     }
 
-    function isFolderEngaged(folder) {
-      var state = getState(folder);
-      var proxy = state.proxy;
-      return Boolean(
-        (proxy && proxy.matches(':hover')) ||
-        (proxy && proxy === document.activeElement) ||
-        folder.matches(':hover') ||
-        folder.contains(document.activeElement)
+    function parseTime(value) {
+      value = String(value || '').trim();
+      if (!value) return 0;
+      if (value.slice(-2) === 'ms') return parseFloat(value) || 0;
+      if (value.slice(-1) === 's') return (parseFloat(value) || 0) * 1000;
+      return parseFloat(value) || 0;
+    }
+
+    function longestTransition(element) {
+      if (!element) return 0;
+
+      var style = window.getComputedStyle(element);
+      var durations = String(style.transitionDuration || '0s').split(',').map(parseTime);
+      var delays = String(style.transitionDelay || '0s').split(',').map(parseTime);
+      var count = Math.max(durations.length, delays.length);
+      var longest = 0;
+
+      for (var i = 0; i < count; i += 1) {
+        longest = Math.max(
+          longest,
+          (durations[i % durations.length] || 0) +
+          (delays[i % delays.length] || 0)
+        );
+      }
+      return longest;
+    }
+
+    function folderTransitionTime(folder) {
+      return Math.max(
+        longestTransition(folder),
+        longestTransition(folder.querySelector('.category-folder-tab')),
+        longestTransition(folder.querySelector('.category-folder-sheet'))
       );
     }
 
-    function raiseFolder(folder) {
-      var state = getState(folder);
-      clearTimer(state, 'lowerTimer');
-      clearTimer(state, 'transitionTimer');
-
-      topFolderLayer += 1;
-      folder.style.zIndex = String(topFolderLayer);
-      folder.style.translate = '0 -20px';
-      folder.setAttribute('data-folder-layer-state', 'raised');
-
-      proxies.forEach(function (proxy) {
-        proxy.classList.remove('is-active');
-      });
-      if (state.proxy) {
-        state.proxy.classList.add('is-active');
-        state.proxy.style.zIndex = '3000';
-        var baseTop = parseFloat(state.proxy.dataset.baseTop || state.proxy.style.top || '0');
-        state.proxy.style.top = baseTop - 20 + 'px';
-      }
+    function isEngaged(folder) {
+      return folder.matches(':hover') || folder.contains(document.activeElement);
     }
 
-    function restoreFolderLayer(folder) {
+    function raiseFolder(folder) {
+      clearReset(folder);
+      topLayer += 1;
+      folder.style.zIndex = String(topLayer);
+      folder.setAttribute('data-folder-layer-state', 'raised');
+    }
+
+    function restoreLayer(folder) {
       var state = getState(folder);
-      if (isFolderEngaged(folder)) {
+
+      if (isEngaged(folder)) {
         raiseFolder(folder);
         return;
       }
@@ -333,41 +276,44 @@ layout: page
       }
 
       folder.removeAttribute('data-folder-layer-state');
-      if (state.proxy) {
-        state.proxy.classList.remove('is-active');
-        state.proxy.style.zIndex = String(2000 - Number(state.proxy.dataset.folderIndex));
-      }
-      state.transitionTimer = null;
+      state.resetTimer = null;
     }
 
-    function lowerFolder(folder) {
-      var state = getState(folder);
-      clearTimer(state, 'lowerTimer');
-      clearTimer(state, 'transitionTimer');
-
+    function lowerAfterMotion(folder) {
+      clearReset(folder);
       folder.setAttribute('data-folder-layer-state', 'lowering');
-      folder.style.translate = '0 0';
-      if (state.proxy) {
-        var baseTop = parseFloat(state.proxy.dataset.baseTop || state.proxy.style.top || '0');
-        state.proxy.style.top = baseTop + 'px';
-      }
 
-      /*
-       * 下降期间继续保持顶层；280ms 动画结束、文件夹真正回到底部后，
-       * 才恢复原有 z-index。额外留一帧避免末帧闪烁。
-       */
-      state.transitionTimer = window.setTimeout(function () {
-        restoreFolderLayer(folder);
-      }, 314);
+      var reducedMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var wait = reducedMotion ? 0 : folderTransitionTime(folder);
+
+      /* 到达原位后才恢复底层，避免下降途中突然被压到下面。 */
+      getState(folder).resetTimer = window.setTimeout(function () {
+        restoreLayer(folder);
+      }, wait + 34);
     }
 
-    function scheduleLower(folder) {
-      var state = getState(folder);
-      clearTimer(state, 'lowerTimer');
-      state.lowerTimer = window.setTimeout(function () {
-        if (!isFolderEngaged(folder)) lowerFolder(folder);
-      }, 60);
-    }
+    folders.forEach(function (folder) {
+      folder.addEventListener('pointerenter', function () {
+        raiseFolder(folder);
+      });
+
+      folder.addEventListener('pointerleave', function () {
+        if (!folder.contains(document.activeElement)) {
+          lowerAfterMotion(folder);
+        }
+      });
+
+      folder.addEventListener('focusin', function () {
+        raiseFolder(folder);
+      });
+
+      folder.addEventListener('focusout', function (event) {
+        if (!folder.contains(event.relatedTarget) && !folder.matches(':hover')) {
+          lowerAfterMotion(folder);
+        }
+      });
+    });
 
     function layoutTabs() {
       if (layoutFrame !== null) {
@@ -377,112 +323,60 @@ layout: page
       layoutFrame = window.requestAnimationFrame(function () {
         layoutFrame = null;
 
+        /* 先取消旧的横向位移，取得主题原本的页签位置。 */
+        tabs.forEach(function (tab) {
+          tab.style.setProperty('--folder-tab-shift-x', '0px');
+        });
+
         var containerRect = container.getBoundingClientRect();
-        var rects = sourceTabs.map(function (tab) {
+        var rects = tabs.map(function (tab) {
           return tab.getBoundingClientRect();
         });
         var widths = rects.map(function (rect) { return rect.width; });
-        var heights = rects.map(function (rect) { return rect.height; });
-        var count = proxies.length;
+        var count = tabs.length;
 
-        var startLeft = Math.max(0, rects[0].left - containerRect.left);
-        var top = Math.min.apply(null, rects.map(function (rect) {
-          return rect.top - containerRect.top;
-        }));
-        var rightPadding = 8;
-        var available = Math.max(
-          0,
-          container.clientWidth - startLeft - rightPadding
-        );
+        if (count < 2) return;
 
-        /*
-         * 标签未排满时只保持轻度重叠；排满后再自动增大重叠。
-         * 这样标签数量少时不会被过度挤压，数量多时也不会溢出容器。
-         */
-        var preferredOverlap = 18;
-        var minimumVisible = window.matchMedia('(max-width: 640px)').matches ? 34 : 46;
-        var steps = widths.slice(0, -1).map(function (width) {
-          return Math.max(minimumVisible, width - preferredOverlap);
-        });
-        var preferredTotal = widths[count - 1] + steps.reduce(function (sum, value) {
-          return sum + value;
+        var firstLeft = rects[0].left;
+        var available = Math.max(0, containerRect.right - firstLeft - 8);
+        var widthSum = widths.reduce(function (sum, width) {
+          return sum + width;
         }, 0);
 
-        if (count > 1 && preferredTotal > available) {
-          var allowedStepsTotal = Math.max(0, available - widths[count - 1]);
-          var currentStepsTotal = steps.reduce(function (sum, value) {
-            return sum + value;
-          }, 0);
-          var reducible = steps.map(function (step) {
-            return Math.max(0, step - minimumVisible);
-          });
-          var reducibleTotal = reducible.reduce(function (sum, value) {
-            return sum + value;
-          }, 0);
-          var need = Math.max(0, currentStepsTotal - allowedStepsTotal);
-          var ratio = reducibleTotal > 0 ? Math.min(1, need / reducibleTotal) : 1;
+        /*
+         * 空间足够时保持 24px 的自然重叠；排满后根据文件夹数量和
+         * 容器宽度自动增大重叠量，使最后一个页签不超出内容区域。
+         */
+        var preferredOverlap = 24;
+        var overlapNeeded = (widthSum - available) / (count - 1);
+        var overlap = Math.max(preferredOverlap, overlapNeeded);
+        var minimumVisible = window.matchMedia('(max-width: 640px)').matches ? 32 : 44;
 
-          steps = steps.map(function (step, index) {
-            return step - reducible[index] * ratio;
-          });
+        var steps = widths.slice(0, -1).map(function (width) {
+          return Math.max(minimumVisible, width - overlap);
+        });
 
-          var compressedTotal = steps.reduce(function (sum, value) {
-            return sum + value;
-          }, 0);
-          if (compressedTotal > allowedStepsTotal && count > 1) {
-            var emergencyStep = Math.max(28, allowedStepsTotal / (count - 1));
-            steps = steps.map(function () { return emergencyStep; });
-          }
+        var total = widths[count - 1] + steps.reduce(function (sum, step) {
+          return sum + step;
+        }, 0);
+
+        /* 极窄屏幕的兜底：均匀压缩，但仍保留可识别、可点击的露出宽度。 */
+        if (total > available) {
+          var equalStep = Math.max(26, (available - widths[count - 1]) / (count - 1));
+          steps = steps.map(function () { return equalStep; });
         }
 
-        var left = startLeft;
-        proxies.forEach(function (proxy, index) {
-          proxy.style.left = Math.round(left * 100) / 100 + 'px';
-          var roundedTop = Math.round(top * 100) / 100;
-          proxy.dataset.baseTop = String(roundedTop);
-          proxy.style.top = proxy.classList.contains('is-active')
-            ? roundedTop - 20 + 'px'
-            : roundedTop + 'px';
-          proxy.style.width = widths[index] + 'px';
-          proxy.style.height = heights[index] + 'px';
-          proxy.style.zIndex = String(2000 - index);
+        var desiredLeft = firstLeft;
+        tabs.forEach(function (tab, index) {
+          var shift = desiredLeft - rects[index].left;
+          tab.style.setProperty('--folder-tab-shift-x', shift + 'px');
 
-          if (index < steps.length) left += steps[index];
+          if (index < steps.length) {
+            desiredLeft += steps[index];
+          }
         });
       });
     }
-
-    proxies.forEach(function (proxy, index) {
-      var folder = folders[index];
-
-      proxy.addEventListener('pointerenter', function () {
-        raiseFolder(folder);
-      });
-      proxy.addEventListener('pointerleave', function () {
-        scheduleLower(folder);
-      });
-      proxy.addEventListener('focus', function () {
-        raiseFolder(folder);
-      });
-      proxy.addEventListener('blur', function () {
-        scheduleLower(folder);
-      });
-    });
-
-    folders.forEach(function (folder) {
-      folder.addEventListener('pointerenter', function () {
-        raiseFolder(folder);
-      });
-      folder.addEventListener('pointerleave', function () {
-        scheduleLower(folder);
-      });
-      folder.addEventListener('focusin', function () {
-        raiseFolder(folder);
-      });
-      folder.addEventListener('focusout', function () {
-        scheduleLower(folder);
-      });
-    });
 
     layoutTabs();
 
@@ -491,8 +385,8 @@ layout: page
     }
 
     if ('ResizeObserver' in window) {
-      var resizeObserver = new ResizeObserver(layoutTabs);
-      resizeObserver.observe(container);
+      var observer = new ResizeObserver(layoutTabs);
+      observer.observe(container);
     } else {
       window.addEventListener('resize', layoutTabs, { passive: true });
     }
