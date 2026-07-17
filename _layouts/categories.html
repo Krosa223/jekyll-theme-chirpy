@@ -7,29 +7,98 @@ layout: page
 
 <style>
   /*
-   * 分类文件夹交互微调：
-   * 1. 标签在 hover / focus 时始终保持清晰的浅色文字；
-   * 2. 每个标签通过 --folder-tab-shift 向左错位，形成文件夹标签叠放效果。
+   * 分类文件夹页签：
+   * 1. 所有交互状态都保持白色文字；
+   * 2. 用边框、内高光和投影强化“前后叠放”的层次；
+   * 3. 横向位置由脚本按容器宽度、标签数量和实际标签宽度自动计算。
    */
-  .category-folder-tab,
-  .category-folder-tab:link,
-  .category-folder-tab:visited,
-  .category-folder-tab:hover,
-  .category-folder-tab:focus,
-  .category-folder-tab:focus-visible,
-  .category-folder-tab:active {
-    color: var(--folder-tab-label-color, #fff) !important;
-    text-decoration: none;
+  .category-folders {
+    position: relative;
+    padding-top: 28px;
+    overflow: visible;
   }
 
-  .category-folder-tab > i,
-  .category-folder-tab > span {
-    color: inherit !important;
+  .category-folder {
+    position: relative;
+    overflow: visible;
   }
 
-  /* 使用独立的 translate 属性，不覆盖原样式中的 transform 上下移动动画。 */
-  .category-folder-tab {
-    translate: var(--folder-tab-shift, 0) 0;
+  .category-folders .category-folder .category-folder-tab,
+  .category-folders .category-folder .category-folder-tab:link,
+  .category-folders .category-folder .category-folder-tab:visited,
+  .category-folders .category-folder .category-folder-tab:hover,
+  .category-folders .category-folder .category-folder-tab:focus,
+  .category-folders .category-folder .category-folder-tab:focus-visible,
+  .category-folders .category-folder .category-folder-tab:active,
+  .category-folders .category-folder:hover .category-folder-tab,
+  .category-folders .category-folder:focus-within .category-folder-tab,
+  .category-folders .category-folder[data-folder-layer-state="raised"] .category-folder-tab,
+  .category-folders .category-folder[data-folder-layer-state="lowering"] .category-folder-tab {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+    text-decoration: none !important;
+  }
+
+  .category-folders .category-folder .category-folder-tab > i,
+  .category-folders .category-folder .category-folder-tab > i::before,
+  .category-folders .category-folder .category-folder-tab > span {
+    color: #fff !important;
+    -webkit-text-fill-color: #fff !important;
+  }
+
+  .category-folders .category-folder .category-folder-tab {
+    position: relative;
+    z-index: calc(var(--folder-tab-layer, 100) + 300);
+    translate: var(--folder-tab-shift, 0px) 0;
+
+    /* 真实文件夹页签的“纸边”和叠放阴影。 */
+    border: 1px solid rgba(49, 35, 31, 0.22) !important;
+    border-bottom-color: rgba(49, 35, 31, 0.34) !important;
+    box-shadow:
+      5px -2px 9px rgba(38, 25, 22, 0.16),
+      1px 0 0 rgba(255, 255, 255, 0.13) inset,
+      0 1px 0 rgba(255, 255, 255, 0.24) inset,
+      -1px 0 0 rgba(38, 25, 22, 0.10) inset;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+    isolation: isolate;
+    will-change: translate;
+    transition:
+      translate 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 220ms ease !important;
+  }
+
+  /* 标签被抬起时阴影稍微加深，增强“抽出文件夹”的感觉。 */
+  .category-folders .category-folder:hover .category-folder-tab,
+  .category-folders .category-folder:focus-within .category-folder-tab,
+  .category-folders .category-folder[data-folder-layer-state="raised"] .category-folder-tab {
+    box-shadow:
+      7px -3px 13px rgba(38, 25, 22, 0.22),
+      1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      0 1px 0 rgba(255, 255, 255, 0.28) inset,
+      -1px 0 0 rgba(38, 25, 22, 0.12) inset;
+  }
+
+  /* 测量原始位置时暂时关闭位移动画，避免页面抖动。 */
+  .category-folders.is-measuring-tabs .category-folder-tab {
+    transition: none !important;
+  }
+
+  /* 给页签留出独立的一行，内容页不压住后面的页签。 */
+  .category-folder-sheet {
+    position: relative;
+    z-index: 1;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 640px) {
+    .category-folders {
+      padding-top: 24px;
+    }
+
+    .category-folder-sheet {
+      margin-top: 12px;
+    }
   }
 </style>
 
@@ -61,14 +130,13 @@ layout: page
       {% assign folder_layer = folder_count | minus: folder_index %}
       {% assign folder_tab_layer = folder_layer | plus: 100 %}
       {% assign color_index = folder_index | modulo: 5 %}
-      {% assign folder_tab_shift = folder_index | times: -14 %}
       {% assign posts_size = posts_of_category | size %}
 
       {% capture category_url %}/categories/{{ category_name | slugify | url_encode }}/{% endcapture %}
 
       <section
         class="category-folder category-folder--{{ color_index }}"
-        style="--folder-layer: {{ folder_layer }}; --folder-tab-layer: {{ folder_tab_layer }}; --folder-tab-shift: {{ folder_tab_shift }}px"
+        style="--folder-layer: {{ folder_layer }}; --folder-tab-layer: {{ folder_tab_layer }}; --folder-index: {{ folder_index }}; --folder-tab-shift: 0px"
       >
         <a
           class="category-folder-tab"
@@ -114,19 +182,147 @@ layout: page
 </div>
 
 <script>
-  /*
-   * 文件夹下降期间暂时保留顶层 z-index：
-   * - 上升时立即置顶；
-   * - 鼠标移出或焦点离开后，先执行原有下降动画；
-   * - 等最长过渡结束后，再恢复原来的层级。
-   */
   document.addEventListener('DOMContentLoaded', function () {
+    var container = document.querySelector('.category-folders');
+    if (!container) return;
+
     var folders = Array.prototype.slice.call(
-      document.querySelectorAll('.category-folders .category-folder')
+      container.querySelectorAll('.category-folder')
     );
+    var tabs = folders.map(function (folder) {
+      return folder.querySelector('.category-folder-tab');
+    }).filter(Boolean);
 
-    if (!folders.length) return;
+    if (!folders.length || !tabs.length) return;
 
+    /*
+     * 根据实际宽度自动排布页签：
+     * - 标签较少时，保持约 32px 的自然重叠；
+     * - 标签增多、即将超出容器时，自动压缩每个标签露出的宽度；
+     * - 窗口大小或字体加载变化后会重新计算。
+     */
+    var tabLayoutFrame = null;
+
+    function layoutFolderTabs() {
+      if (tabLayoutFrame !== null) {
+        window.cancelAnimationFrame(tabLayoutFrame);
+      }
+
+      tabLayoutFrame = window.requestAnimationFrame(function () {
+        tabLayoutFrame = null;
+        container.classList.add('is-measuring-tabs');
+
+        tabs.forEach(function (tab) {
+          tab.style.setProperty('--folder-tab-shift', '0px');
+        });
+
+        /* 强制完成一次布局，取得主题原始样式下的真实位置。 */
+        void container.offsetWidth;
+
+        var containerRect = container.getBoundingClientRect();
+        var rects = tabs.map(function (tab) {
+          return tab.getBoundingClientRect();
+        });
+        var widths = rects.map(function (rect) {
+          return rect.width;
+        });
+
+        var count = tabs.length;
+        var firstLeft = rects[0].left;
+        var rightPadding = 6;
+        var availableWidth = Math.max(
+          0,
+          containerRect.right - rightPadding - firstLeft
+        );
+
+        var preferredOverlap = 32;
+        var minimumVisible = window.matchMedia('(max-width: 640px)').matches ? 38 : 50;
+        var steps = [];
+
+        for (var i = 0; i < count - 1; i += 1) {
+          /* 每个后续标签至少覆盖前一个约 32px。 */
+          steps.push(Math.max(minimumVisible, widths[i] - preferredOverlap));
+        }
+
+        var preferredStepTotal = steps.reduce(function (sum, step) {
+          return sum + step;
+        }, 0);
+        var allowedStepTotal = Math.max(0, availableWidth - widths[count - 1]);
+
+        if (count > 1 && preferredStepTotal > allowedStepTotal) {
+          /*
+           * 页面排满后，按各标签可压缩的空间同比例增加重叠量。
+           * 数量越多或页面越窄，重叠就越深。
+           */
+          var capacities = steps.map(function (step) {
+            return Math.max(0, step - minimumVisible);
+          });
+          var totalCapacity = capacities.reduce(function (sum, value) {
+            return sum + value;
+          }, 0);
+          var needToReduce = preferredStepTotal - allowedStepTotal;
+          var ratio = totalCapacity > 0
+            ? Math.min(1, needToReduce / totalCapacity)
+            : 1;
+
+          steps = steps.map(function (step, index) {
+            return step - capacities[index] * ratio;
+          });
+
+          var compressedTotal = steps.reduce(function (sum, step) {
+            return sum + step;
+          }, 0);
+
+          /* 极窄屏幕或标签特别多时，再做一次等距压缩，确保尽量不溢出。 */
+          if (compressedTotal > allowedStepTotal && count > 1) {
+            var emergencyStep = Math.max(28, allowedStepTotal / (count - 1));
+            steps = steps.map(function () {
+              return emergencyStep;
+            });
+          }
+
+          container.setAttribute('data-tabs-compressed', 'true');
+        } else {
+          container.removeAttribute('data-tabs-compressed');
+        }
+
+        var desiredLeft = firstLeft;
+
+        tabs.forEach(function (tab, index) {
+          if (index > 0) {
+            desiredLeft += steps[index - 1];
+          }
+
+          var shift = desiredLeft - rects[index].left;
+          tab.style.setProperty(
+            '--folder-tab-shift',
+            Math.round(shift * 100) / 100 + 'px'
+          );
+        });
+
+        container.classList.remove('is-measuring-tabs');
+      });
+    }
+
+    layoutFolderTabs();
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(layoutFolderTabs);
+    }
+
+    if ('ResizeObserver' in window) {
+      var resizeObserver = new ResizeObserver(layoutFolderTabs);
+      resizeObserver.observe(container);
+    } else {
+      window.addEventListener('resize', layoutFolderTabs, { passive: true });
+    }
+
+    /*
+     * 文件夹下降期间暂时保留顶层 z-index：
+     * - 上升时立即置顶；
+     * - 离开后先完成下降动画；
+     * - 到达底部后才恢复原始层级。
+     */
     var topLayer = 10000 + folders.length;
     var states = new WeakMap();
 
@@ -198,7 +394,6 @@ layout: page
     function restoreFolderLayer(folder) {
       var state = getState(folder);
 
-      /* 鼠标或键盘焦点重新进入时，不执行降层。 */
       if (folder.matches(':hover') || folder.contains(document.activeElement)) {
         raiseFolder(folder);
         return;
@@ -221,9 +416,8 @@ layout: page
       var reduceMotion = window.matchMedia &&
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       var wait = reduceMotion ? 0 : folderMotionTime(folder);
-
-      /* 多留一帧，确保视觉位置已经完全回到底部。 */
       var state = getState(folder);
+
       state.timer = window.setTimeout(function () {
         restoreFolderLayer(folder);
       }, wait + 34);
