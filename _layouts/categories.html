@@ -254,11 +254,44 @@ layout: page
       return folder.matches(':hover') || folder.contains(document.activeElement);
     }
 
+    function updateGlassLayers(frontFolder) {
+      var front = frontFolder;
+
+      if (!front) {
+        for (var i = 0; i < folders.length; i += 1) {
+          if (isEngaged(folders[i])) {
+            front = folders[i];
+            break;
+          }
+        }
+      }
+
+      front = front || folders[0];
+
+      var back = null;
+      for (var j = 0; j < folders.length; j += 1) {
+        if (folders[j] !== front) {
+          back = folders[j];
+          break;
+        }
+      }
+
+      folders.forEach(function (folder) {
+        folder.classList.remove('is-glass-front', 'is-glass-back');
+      });
+
+      if (front) front.classList.add('is-glass-front');
+      if (back) back.classList.add('is-glass-back');
+
+      container.classList.add('glass-layers-ready');
+    }
+
     function raiseFolder(folder) {
       clearReset(folder);
       topLayer += 1;
       folder.style.zIndex = String(topLayer);
       folder.setAttribute('data-folder-layer-state', 'raised');
+      updateGlassLayers(folder);
     }
 
     function restoreLayer(folder) {
@@ -277,6 +310,7 @@ layout: page
 
       folder.removeAttribute('data-folder-layer-state');
       state.resetTimer = null;
+      updateGlassLayers();
     }
 
     function lowerAfterMotion(folder) {
@@ -292,6 +326,8 @@ layout: page
         restoreLayer(folder);
       }, wait + 34);
     }
+
+    updateGlassLayers();
 
     folders.forEach(function (folder) {
       folder.addEventListener('pointerenter', function () {

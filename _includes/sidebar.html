@@ -141,6 +141,104 @@
         </a>
       {% endif %}
     {% endfor %}
+    <span class="icon-border" aria-hidden="true"></span>
+
+    <div class="wallpaper-picker">
+      <button
+        type="button"
+        id="wallpaper-toggle"
+        aria-label="Switch wallpaper"
+        title="Switch wallpaper"
+        aria-expanded="false"
+        aria-controls="wallpaper-menu"
+      >
+        <i class="fa-solid fa-images" aria-hidden="true"></i>
+      </button>
+
+      <div id="wallpaper-menu" role="group" aria-label="Wallpaper choices" hidden>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="1k5kdg"
+          aria-label="Use wallhaven-1k5kdg"
+          title="wallhaven-1k5kdg"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-1k5kdg.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="7pje5o"
+          aria-label="Use wallhaven-7pje5o"
+          title="wallhaven-7pje5o"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-7pje5o.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="d8p83m"
+          aria-label="Use wallhaven-d8p83m"
+          title="wallhaven-d8p83m"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-d8p83m.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="gp2q9q"
+          aria-label="Use wallhaven-gp2q9q"
+          title="wallhaven-gp2q9q"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-gp2q9q.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="134825297"
+          aria-label="Use 134825297_p0"
+          title="134825297_p0"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-134825297.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="147092236"
+          aria-label="Use 147092236_p0"
+          title="147092236_p0"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-147092236.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="133608163"
+          aria-label="Use 133608163_p0"
+          title="133608163_p0"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-133608163.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="139576849"
+          aria-label="Use 139576849_p0"
+          title="139576849_p0"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-139576849.webp' | relative_url }}')"
+        ></button>
+        <button
+          type="button"
+          class="wallpaper-option"
+          data-wallpaper="132910923"
+          aria-label="Use 132910923_p0"
+          title="132910923_p0"
+          aria-pressed="false"
+          style="--wallpaper-thumbnail: url('{{ '/assets/img/backgrounds/thumb-132910923.webp' | relative_url }}')"
+        ></button>
+      </div>
+    </div>
   </div>
   <!-- .sidebar-bottom -->
 </aside>

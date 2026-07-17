@@ -18,4 +18,51 @@
 
 :root {
   --glass-background-image: url('{{ "/assets/img/backgrounds/forest-walk.webp" | relative_url }}');
+  --glass-background-position: left center;
+  --glass-sidebar-image: url('{{ "/assets/img/backgrounds/sidebar-sky.webp" | relative_url }}');
+}
+
+:root[data-wallpaper='1k5kdg'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/mountain-road.webp" | relative_url }}');
+  --glass-background-position: center center;
+}
+
+:root[data-wallpaper='7pje5o'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/forest-walk.webp" | relative_url }}');
+  --glass-background-position: left center;
+}
+
+:root[data-wallpaper='d8p83m'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/cloud-field.webp" | relative_url }}');
+  --glass-background-position: center center;
+}
+
+:root[data-wallpaper='gp2q9q'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/band-daylight.webp" | relative_url }}');
+  --glass-background-position: center center;
+}
+
+:root[data-wallpaper='134825297'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/art-134825297.webp" | relative_url }}');
+  --glass-background-position: center center;
+}
+
+:root[data-wallpaper='147092236'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/art-147092236.webp" | relative_url }}');
+  --glass-background-position: left center;
+}
+
+:root[data-wallpaper='133608163'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/art-133608163.webp" | relative_url }}');
+  --glass-background-position: left center;
+}
+
+:root[data-wallpaper='139576849'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/art-139576849.webp" | relative_url }}');
+  --glass-background-position: center 44%;
+}
+
+:root[data-wallpaper='132910923'] {
+  --glass-background-image: url('{{ "/assets/img/backgrounds/art-132910923.webp" | relative_url }}');
+  --glass-background-position: left center;
 }
