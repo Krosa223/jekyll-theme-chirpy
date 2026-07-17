@@ -5,103 +5,104 @@ layout: page
 
 {% include lang.html %}
 
+
 <style>
   /*
-   * 分类文件夹页签：
-   * 1. 所有交互状态都保持白色文字；
-   * 2. 用边框、内高光和投影强化“前后叠放”的层次；
-   * 3. 横向位置由脚本按容器宽度、标签数量和实际标签宽度自动计算。
+   * 文件夹页签独立显示层：
+   * 页签始终位于所有文件夹纸页上方，文件夹升起时不会再遮住其它页签。
+   * 原文件夹排版与定位不做任何覆盖，避免纸页被改成横向并排。
    */
   .category-folders {
     position: relative;
-    padding-top: 28px;
     overflow: visible;
   }
 
-  .category-folder {
-    position: relative;
+  .category-folder-tabs-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2147483000;
     overflow: visible;
+    pointer-events: none;
   }
 
-  .category-folders .category-folder .category-folder-tab,
-  .category-folders .category-folder .category-folder-tab:link,
-  .category-folders .category-folder .category-folder-tab:visited,
-  .category-folders .category-folder .category-folder-tab:hover,
-  .category-folders .category-folder .category-folder-tab:focus,
-  .category-folders .category-folder .category-folder-tab:focus-visible,
-  .category-folders .category-folder .category-folder-tab:active,
-  .category-folders .category-folder:hover .category-folder-tab,
-  .category-folders .category-folder:focus-within .category-folder-tab,
-  .category-folders .category-folder[data-folder-layer-state="raised"] .category-folder-tab,
-  .category-folders .category-folder[data-folder-layer-state="lowering"] .category-folder-tab {
+  .category-folder-tab--source-hidden {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  .category-folder-tabs-overlay .category-folder-tab-proxy,
+  .category-folder-tabs-overlay .category-folder-tab-proxy:link,
+  .category-folder-tabs-overlay .category-folder-tab-proxy:visited,
+  .category-folder-tabs-overlay .category-folder-tab-proxy:hover,
+  .category-folder-tabs-overlay .category-folder-tab-proxy:focus,
+  .category-folder-tabs-overlay .category-folder-tab-proxy:focus-visible,
+  .category-folder-tabs-overlay .category-folder-tab-proxy:active {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
     text-decoration: none !important;
+    white-space: nowrap;
+    pointer-events: auto;
+    box-sizing: border-box;
+    isolation: isolate;
+
+    /* 边框、内高光与右侧投影共同形成真实文件夹叠放边缘。 */
+    border: 1px solid rgba(52, 39, 34, 0.30) !important;
+    border-bottom-color: rgba(52, 39, 34, 0.44) !important;
+    box-shadow:
+      4px -2px 7px rgba(35, 24, 21, 0.17),
+      0 1px 0 rgba(255, 255, 255, 0.24) inset,
+      1px 0 0 rgba(255, 255, 255, 0.13) inset,
+      -1px 0 0 rgba(35, 24, 21, 0.09) inset;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.17);
+    transition:
+      top 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 180ms ease;
   }
 
-  .category-folders .category-folder .category-folder-tab > i,
-  .category-folders .category-folder .category-folder-tab > i::before,
-  .category-folders .category-folder .category-folder-tab > span {
+  .category-folder-tabs-overlay .category-folder-tab-proxy::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    right: -7px;
+    bottom: -1px;
+    width: 10px;
+    z-index: -1;
+    background: inherit;
+    border-top: 1px solid rgba(255, 255, 255, 0.11);
+    border-right: 1px solid rgba(52, 39, 34, 0.26);
+    border-bottom: 1px solid rgba(52, 39, 34, 0.36);
+    border-radius: 0 5px 2px 0;
+    transform: skewX(7deg);
+    box-shadow: 4px -1px 6px rgba(35, 24, 21, 0.14);
+  }
+
+  .category-folder-tabs-overlay .category-folder-tab-proxy > i,
+  .category-folder-tabs-overlay .category-folder-tab-proxy > i::before,
+  .category-folder-tabs-overlay .category-folder-tab-proxy > span {
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
   }
 
-  .category-folders .category-folder .category-folder-tab {
-    position: relative;
-    z-index: calc(var(--folder-tab-layer, 100) + 300);
-    translate: var(--folder-tab-shift, 0px) 0;
-
-    /* 真实文件夹页签的“纸边”和叠放阴影。 */
-    border: 1px solid rgba(49, 35, 31, 0.22) !important;
-    border-bottom-color: rgba(49, 35, 31, 0.34) !important;
+  .category-folder-tabs-overlay .category-folder-tab-proxy:hover,
+  .category-folder-tabs-overlay .category-folder-tab-proxy:focus-visible,
+  .category-folder-tabs-overlay .category-folder-tab-proxy.is-active {
     box-shadow:
-      5px -2px 9px rgba(38, 25, 22, 0.16),
-      1px 0 0 rgba(255, 255, 255, 0.13) inset,
-      0 1px 0 rgba(255, 255, 255, 0.24) inset,
-      -1px 0 0 rgba(38, 25, 22, 0.10) inset;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
-    isolation: isolate;
-    will-change: translate;
-    transition:
-      translate 260ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 220ms ease !important;
-  }
-
-  /* 标签被抬起时阴影稍微加深，增强“抽出文件夹”的感觉。 */
-  .category-folders .category-folder:hover .category-folder-tab,
-  .category-folders .category-folder:focus-within .category-folder-tab,
-  .category-folders .category-folder[data-folder-layer-state="raised"] .category-folder-tab {
-    box-shadow:
-      7px -3px 13px rgba(38, 25, 22, 0.22),
-      1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      6px -3px 11px rgba(35, 24, 21, 0.23),
       0 1px 0 rgba(255, 255, 255, 0.28) inset,
-      -1px 0 0 rgba(38, 25, 22, 0.12) inset;
+      1px 0 0 rgba(255, 255, 255, 0.16) inset,
+      -1px 0 0 rgba(35, 24, 21, 0.11) inset;
+    outline: none;
   }
 
-  /* 测量原始位置时暂时关闭位移动画，避免页面抖动。 */
-  .category-folders.is-measuring-tabs .category-folder-tab {
-    transition: none !important;
-  }
-
-  /* 给页签留出独立的一行，内容页不压住后面的页签。 */
-  .category-folder-sheet {
-    position: relative;
-    z-index: 1;
-    margin-top: 14px;
-  }
-
-  @media (max-width: 640px) {
-    .category-folders {
-      padding-top: 24px;
-    }
-
-    .category-folder-sheet {
-      margin-top: 12px;
+  @media (prefers-reduced-motion: reduce) {
+    .category-folder-tabs-overlay .category-folder-tab-proxy {
+      transition: none;
     }
   }
 </style>
-
 
 {% assign sort_categories = site.categories | sort %}
 {% assign folder_count = 0 %}
@@ -136,7 +137,7 @@ layout: page
 
       <section
         class="category-folder category-folder--{{ color_index }}"
-        style="--folder-layer: {{ folder_layer }}; --folder-tab-layer: {{ folder_tab_layer }}; --folder-index: {{ folder_index }}; --folder-tab-shift: 0px"
+        style="--folder-layer: {{ folder_layer }}; --folder-tab-layer: {{ folder_tab_layer }}"
       >
         <a
           class="category-folder-tab"
@@ -181,6 +182,7 @@ layout: page
   {% endfor %}
 </div>
 
+
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     var container = document.querySelector('.category-folders');
@@ -189,212 +191,137 @@ layout: page
     var folders = Array.prototype.slice.call(
       container.querySelectorAll('.category-folder')
     );
-    var tabs = folders.map(function (folder) {
+    if (!folders.length) return;
+
+    var sourceTabs = folders.map(function (folder) {
       return folder.querySelector('.category-folder-tab');
-    }).filter(Boolean);
+    });
+    if (sourceTabs.some(function (tab) { return !tab; })) return;
 
-    if (!folders.length || !tabs.length) return;
+    var overlay = document.createElement('div');
+    overlay.className = 'category-folder-tabs-overlay';
+    overlay.setAttribute('aria-label', '分类文件夹标签');
+    container.appendChild(overlay);
 
-    /*
-     * 根据实际宽度自动排布页签：
-     * - 标签较少时，保持约 32px 的自然重叠；
-     * - 标签增多、即将超出容器时，自动压缩每个标签露出的宽度；
-     * - 窗口大小或字体加载变化后会重新计算。
-     */
-    var tabLayoutFrame = null;
-
-    function layoutFolderTabs() {
-      if (tabLayoutFrame !== null) {
-        window.cancelAnimationFrame(tabLayoutFrame);
-      }
-
-      tabLayoutFrame = window.requestAnimationFrame(function () {
-        tabLayoutFrame = null;
-        container.classList.add('is-measuring-tabs');
-
-        tabs.forEach(function (tab) {
-          tab.style.setProperty('--folder-tab-shift', '0px');
-        });
-
-        /* 强制完成一次布局，取得主题原始样式下的真实位置。 */
-        void container.offsetWidth;
-
-        var containerRect = container.getBoundingClientRect();
-        var rects = tabs.map(function (tab) {
-          return tab.getBoundingClientRect();
-        });
-        var widths = rects.map(function (rect) {
-          return rect.width;
-        });
-
-        var count = tabs.length;
-        var firstLeft = rects[0].left;
-        var rightPadding = 6;
-        var availableWidth = Math.max(
-          0,
-          containerRect.right - rightPadding - firstLeft
-        );
-
-        var preferredOverlap = 32;
-        var minimumVisible = window.matchMedia('(max-width: 640px)').matches ? 38 : 50;
-        var steps = [];
-
-        for (var i = 0; i < count - 1; i += 1) {
-          /* 每个后续标签至少覆盖前一个约 32px。 */
-          steps.push(Math.max(minimumVisible, widths[i] - preferredOverlap));
-        }
-
-        var preferredStepTotal = steps.reduce(function (sum, step) {
-          return sum + step;
-        }, 0);
-        var allowedStepTotal = Math.max(0, availableWidth - widths[count - 1]);
-
-        if (count > 1 && preferredStepTotal > allowedStepTotal) {
-          /*
-           * 页面排满后，按各标签可压缩的空间同比例增加重叠量。
-           * 数量越多或页面越窄，重叠就越深。
-           */
-          var capacities = steps.map(function (step) {
-            return Math.max(0, step - minimumVisible);
-          });
-          var totalCapacity = capacities.reduce(function (sum, value) {
-            return sum + value;
-          }, 0);
-          var needToReduce = preferredStepTotal - allowedStepTotal;
-          var ratio = totalCapacity > 0
-            ? Math.min(1, needToReduce / totalCapacity)
-            : 1;
-
-          steps = steps.map(function (step, index) {
-            return step - capacities[index] * ratio;
-          });
-
-          var compressedTotal = steps.reduce(function (sum, step) {
-            return sum + step;
-          }, 0);
-
-          /* 极窄屏幕或标签特别多时，再做一次等距压缩，确保尽量不溢出。 */
-          if (compressedTotal > allowedStepTotal && count > 1) {
-            var emergencyStep = Math.max(28, allowedStepTotal / (count - 1));
-            steps = steps.map(function () {
-              return emergencyStep;
-            });
-          }
-
-          container.setAttribute('data-tabs-compressed', 'true');
-        } else {
-          container.removeAttribute('data-tabs-compressed');
-        }
-
-        var desiredLeft = firstLeft;
-
-        tabs.forEach(function (tab, index) {
-          if (index > 0) {
-            desiredLeft += steps[index - 1];
-          }
-
-          var shift = desiredLeft - rects[index].left;
-          tab.style.setProperty(
-            '--folder-tab-shift',
-            Math.round(shift * 100) / 100 + 'px'
-          );
-        });
-
-        container.classList.remove('is-measuring-tabs');
-      });
-    }
-
-    layoutFolderTabs();
-
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(layoutFolderTabs);
-    }
-
-    if ('ResizeObserver' in window) {
-      var resizeObserver = new ResizeObserver(layoutFolderTabs);
-      resizeObserver.observe(container);
-    } else {
-      window.addEventListener('resize', layoutFolderTabs, { passive: true });
-    }
-
-    /*
-     * 文件夹下降期间暂时保留顶层 z-index：
-     * - 上升时立即置顶；
-     * - 离开后先完成下降动画；
-     * - 到达底部后才恢复原始层级。
-     */
-    var topLayer = 10000 + folders.length;
     var states = new WeakMap();
+    var proxies = [];
+    var topFolderLayer = 10000 + folders.length;
+    var layoutFrame = null;
 
-    function timeToMilliseconds(value) {
-      value = String(value || '').trim();
-      if (!value) return 0;
-      if (value.slice(-2) === 'ms') return parseFloat(value) || 0;
-      if (value.slice(-1) === 's') return (parseFloat(value) || 0) * 1000;
-      return parseFloat(value) || 0;
-    }
+    function copyVisualStyle(source, proxy) {
+      var style = window.getComputedStyle(source);
+      var properties = [
+        'background', 'backgroundColor', 'backgroundImage',
+        'backgroundPosition', 'backgroundSize', 'backgroundRepeat',
+        'borderRadius', 'paddingTop', 'paddingRight',
+        'paddingBottom', 'paddingLeft', 'gap',
+        'fontFamily', 'fontSize', 'fontStyle', 'fontWeight',
+        'letterSpacing', 'lineHeight', 'textTransform'
+      ];
 
-    function splitTimes(value) {
-      return String(value || '0s').split(',').map(timeToMilliseconds);
-    }
-
-    function longestTransitionOn(element) {
-      if (!element) return 0;
-
-      var style = window.getComputedStyle(element);
-      var durations = splitTimes(style.transitionDuration);
-      var delays = splitTimes(style.transitionDelay);
-      var count = Math.max(durations.length, delays.length);
-      var longest = 0;
-
-      for (var i = 0; i < count; i += 1) {
-        var duration = durations[i % durations.length] || 0;
-        var delay = delays[i % delays.length] || 0;
-        longest = Math.max(longest, duration + delay);
-      }
-
-      return longest;
-    }
-
-    function folderMotionTime(folder) {
-      return Math.max(
-        longestTransitionOn(folder),
-        longestTransitionOn(folder.querySelector('.category-folder-tab')),
-        longestTransitionOn(folder.querySelector('.category-folder-sheet'))
-      );
+      properties.forEach(function (property) {
+        var value = style[property];
+        if (value) proxy.style[property] = value;
+      });
     }
 
     function getState(folder) {
       var state = states.get(folder);
-      if (!state) {
-        state = {
-          originalInlineZIndex: folder.style.zIndex,
-          timer: null
-        };
-        states.set(folder, state);
-      }
+      if (state) return state;
+
+      var computed = window.getComputedStyle(folder);
+      var baseTransform = computed.transform;
+      var transition = computed.transition;
+
+      /*
+       * 固定文件夹静止时的原始 transform，避免主题自带 :hover 位移与
+       * 本脚本的独立 translate 动画叠加。不会修改 position/display 等布局属性。
+       */
+      folder.style.transform =
+        baseTransform && baseTransform !== 'none' ? baseTransform : 'none';
+
+      folder.style.transition =
+        (transition && transition !== 'all 0s ease 0s' ? transition + ', ' : '') +
+        'translate 280ms cubic-bezier(0.22, 1, 0.36, 1)';
+      folder.style.translate = '0 0';
+
+      state = {
+        originalInlineZIndex: folder.style.zIndex,
+        lowerTimer: null,
+        transitionTimer: null,
+        proxy: null
+      };
+      states.set(folder, state);
       return state;
     }
 
-    function cancelLayerReset(folder) {
-      var state = getState(folder);
-      if (state.timer !== null) {
-        window.clearTimeout(state.timer);
-        state.timer = null;
+    sourceTabs.forEach(function (source, index) {
+      var folder = folders[index];
+      var rect = source.getBoundingClientRect();
+      var proxy = source.cloneNode(true);
+
+      proxy.classList.add('category-folder-tab-proxy');
+      proxy.removeAttribute('id');
+      proxy.removeAttribute('aria-hidden');
+      proxy.dataset.folderIndex = String(index);
+      proxy.style.width = rect.width + 'px';
+      proxy.style.height = rect.height + 'px';
+      proxy.style.color = '#fff';
+      proxy.style.webkitTextFillColor = '#fff';
+
+      copyVisualStyle(source, proxy);
+      overlay.appendChild(proxy);
+      proxies.push(proxy);
+
+      source.classList.add('category-folder-tab--source-hidden');
+      source.setAttribute('aria-hidden', 'true');
+      source.setAttribute('tabindex', '-1');
+
+      getState(folder).proxy = proxy;
+    });
+
+    function clearTimer(state, key) {
+      if (state[key] !== null) {
+        window.clearTimeout(state[key]);
+        state[key] = null;
       }
     }
 
+    function isFolderEngaged(folder) {
+      var state = getState(folder);
+      var proxy = state.proxy;
+      return Boolean(
+        (proxy && proxy.matches(':hover')) ||
+        (proxy && proxy === document.activeElement) ||
+        folder.matches(':hover') ||
+        folder.contains(document.activeElement)
+      );
+    }
+
     function raiseFolder(folder) {
-      cancelLayerReset(folder);
-      topLayer += 1;
-      folder.style.zIndex = String(topLayer);
+      var state = getState(folder);
+      clearTimer(state, 'lowerTimer');
+      clearTimer(state, 'transitionTimer');
+
+      topFolderLayer += 1;
+      folder.style.zIndex = String(topFolderLayer);
+      folder.style.translate = '0 -20px';
       folder.setAttribute('data-folder-layer-state', 'raised');
+
+      proxies.forEach(function (proxy) {
+        proxy.classList.remove('is-active');
+      });
+      if (state.proxy) {
+        state.proxy.classList.add('is-active');
+        state.proxy.style.zIndex = '3000';
+        var baseTop = parseFloat(state.proxy.dataset.baseTop || state.proxy.style.top || '0');
+        state.proxy.style.top = baseTop - 20 + 'px';
+      }
     }
 
     function restoreFolderLayer(folder) {
       var state = getState(folder);
-
-      if (folder.matches(':hover') || folder.contains(document.activeElement)) {
+      if (isFolderEngaged(folder)) {
         raiseFolder(folder);
         return;
       }
@@ -406,43 +333,168 @@ layout: page
       }
 
       folder.removeAttribute('data-folder-layer-state');
-      state.timer = null;
+      if (state.proxy) {
+        state.proxy.classList.remove('is-active');
+        state.proxy.style.zIndex = String(2000 - Number(state.proxy.dataset.folderIndex));
+      }
+      state.transitionTimer = null;
     }
 
-    function lowerFolderAfterMotion(folder) {
-      cancelLayerReset(folder);
-      folder.setAttribute('data-folder-layer-state', 'lowering');
-
-      var reduceMotion = window.matchMedia &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var wait = reduceMotion ? 0 : folderMotionTime(folder);
+    function lowerFolder(folder) {
       var state = getState(folder);
+      clearTimer(state, 'lowerTimer');
+      clearTimer(state, 'transitionTimer');
 
-      state.timer = window.setTimeout(function () {
+      folder.setAttribute('data-folder-layer-state', 'lowering');
+      folder.style.translate = '0 0';
+      if (state.proxy) {
+        var baseTop = parseFloat(state.proxy.dataset.baseTop || state.proxy.style.top || '0');
+        state.proxy.style.top = baseTop + 'px';
+      }
+
+      /*
+       * 下降期间继续保持顶层；280ms 动画结束、文件夹真正回到底部后，
+       * 才恢复原有 z-index。额外留一帧避免末帧闪烁。
+       */
+      state.transitionTimer = window.setTimeout(function () {
         restoreFolderLayer(folder);
-      }, wait + 34);
+      }, 314);
     }
+
+    function scheduleLower(folder) {
+      var state = getState(folder);
+      clearTimer(state, 'lowerTimer');
+      state.lowerTimer = window.setTimeout(function () {
+        if (!isFolderEngaged(folder)) lowerFolder(folder);
+      }, 60);
+    }
+
+    function layoutTabs() {
+      if (layoutFrame !== null) {
+        window.cancelAnimationFrame(layoutFrame);
+      }
+
+      layoutFrame = window.requestAnimationFrame(function () {
+        layoutFrame = null;
+
+        var containerRect = container.getBoundingClientRect();
+        var rects = sourceTabs.map(function (tab) {
+          return tab.getBoundingClientRect();
+        });
+        var widths = rects.map(function (rect) { return rect.width; });
+        var heights = rects.map(function (rect) { return rect.height; });
+        var count = proxies.length;
+
+        var startLeft = Math.max(0, rects[0].left - containerRect.left);
+        var top = Math.min.apply(null, rects.map(function (rect) {
+          return rect.top - containerRect.top;
+        }));
+        var rightPadding = 8;
+        var available = Math.max(
+          0,
+          container.clientWidth - startLeft - rightPadding
+        );
+
+        /*
+         * 标签未排满时只保持轻度重叠；排满后再自动增大重叠。
+         * 这样标签数量少时不会被过度挤压，数量多时也不会溢出容器。
+         */
+        var preferredOverlap = 18;
+        var minimumVisible = window.matchMedia('(max-width: 640px)').matches ? 34 : 46;
+        var steps = widths.slice(0, -1).map(function (width) {
+          return Math.max(minimumVisible, width - preferredOverlap);
+        });
+        var preferredTotal = widths[count - 1] + steps.reduce(function (sum, value) {
+          return sum + value;
+        }, 0);
+
+        if (count > 1 && preferredTotal > available) {
+          var allowedStepsTotal = Math.max(0, available - widths[count - 1]);
+          var currentStepsTotal = steps.reduce(function (sum, value) {
+            return sum + value;
+          }, 0);
+          var reducible = steps.map(function (step) {
+            return Math.max(0, step - minimumVisible);
+          });
+          var reducibleTotal = reducible.reduce(function (sum, value) {
+            return sum + value;
+          }, 0);
+          var need = Math.max(0, currentStepsTotal - allowedStepsTotal);
+          var ratio = reducibleTotal > 0 ? Math.min(1, need / reducibleTotal) : 1;
+
+          steps = steps.map(function (step, index) {
+            return step - reducible[index] * ratio;
+          });
+
+          var compressedTotal = steps.reduce(function (sum, value) {
+            return sum + value;
+          }, 0);
+          if (compressedTotal > allowedStepsTotal && count > 1) {
+            var emergencyStep = Math.max(28, allowedStepsTotal / (count - 1));
+            steps = steps.map(function () { return emergencyStep; });
+          }
+        }
+
+        var left = startLeft;
+        proxies.forEach(function (proxy, index) {
+          proxy.style.left = Math.round(left * 100) / 100 + 'px';
+          var roundedTop = Math.round(top * 100) / 100;
+          proxy.dataset.baseTop = String(roundedTop);
+          proxy.style.top = proxy.classList.contains('is-active')
+            ? roundedTop - 20 + 'px'
+            : roundedTop + 'px';
+          proxy.style.width = widths[index] + 'px';
+          proxy.style.height = heights[index] + 'px';
+          proxy.style.zIndex = String(2000 - index);
+
+          if (index < steps.length) left += steps[index];
+        });
+      });
+    }
+
+    proxies.forEach(function (proxy, index) {
+      var folder = folders[index];
+
+      proxy.addEventListener('pointerenter', function () {
+        raiseFolder(folder);
+      });
+      proxy.addEventListener('pointerleave', function () {
+        scheduleLower(folder);
+      });
+      proxy.addEventListener('focus', function () {
+        raiseFolder(folder);
+      });
+      proxy.addEventListener('blur', function () {
+        scheduleLower(folder);
+      });
+    });
 
     folders.forEach(function (folder) {
       folder.addEventListener('pointerenter', function () {
         raiseFolder(folder);
       });
-
       folder.addEventListener('pointerleave', function () {
-        if (!folder.contains(document.activeElement)) {
-          lowerFolderAfterMotion(folder);
-        }
+        scheduleLower(folder);
       });
-
       folder.addEventListener('focusin', function () {
         raiseFolder(folder);
       });
-
-      folder.addEventListener('focusout', function (event) {
-        if (!folder.contains(event.relatedTarget) && !folder.matches(':hover')) {
-          lowerFolderAfterMotion(folder);
-        }
+      folder.addEventListener('focusout', function () {
+        scheduleLower(folder);
       });
     });
+
+    layoutTabs();
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(layoutTabs);
+    }
+
+    if ('ResizeObserver' in window) {
+      var resizeObserver = new ResizeObserver(layoutTabs);
+      resizeObserver.observe(container);
+    } else {
+      window.addEventListener('resize', layoutTabs, { passive: true });
+    }
   });
 </script>
