@@ -5,6 +5,35 @@ layout: page
 
 {% include lang.html %}
 
+<style>
+  /*
+   * 分类文件夹交互微调：
+   * 1. 标签在 hover / focus 时始终保持清晰的浅色文字；
+   * 2. 每个标签通过 --folder-tab-shift 向左错位，形成文件夹标签叠放效果。
+   */
+  .category-folder-tab,
+  .category-folder-tab:link,
+  .category-folder-tab:visited,
+  .category-folder-tab:hover,
+  .category-folder-tab:focus,
+  .category-folder-tab:focus-visible,
+  .category-folder-tab:active {
+    color: var(--folder-tab-label-color, #fff) !important;
+    text-decoration: none;
+  }
+
+  .category-folder-tab > i,
+  .category-folder-tab > span {
+    color: inherit !important;
+  }
+
+  /* 使用独立的 translate 属性，不覆盖原样式中的 transform 上下移动动画。 */
+  .category-folder-tab {
+    translate: var(--folder-tab-shift, 0) 0;
+  }
+</style>
+
+
 {% assign sort_categories = site.categories | sort %}
 {% assign folder_count = 0 %}
 
@@ -32,13 +61,14 @@ layout: page
       {% assign folder_layer = folder_count | minus: folder_index %}
       {% assign folder_tab_layer = folder_layer | plus: 100 %}
       {% assign color_index = folder_index | modulo: 5 %}
+      {% assign folder_tab_shift = folder_index | times: -14 %}
       {% assign posts_size = posts_of_category | size %}
 
       {% capture category_url %}/categories/{{ category_name | slugify | url_encode }}/{% endcapture %}
 
       <section
         class="category-folder category-folder--{{ color_index }}"
-        style="--folder-layer: {{ folder_layer }}; --folder-tab-layer: {{ folder_tab_layer }}"
+        style="--folder-layer: {{ folder_layer }}; --folder-tab-layer: {{ folder_tab_layer }}; --folder-tab-shift: {{ folder_tab_shift }}px"
       >
         <a
           class="category-folder-tab"
@@ -82,3 +112,143 @@ layout: page
     {% endif %}
   {% endfor %}
 </div>
+
+<script>
+  /*
+   * 文件夹下降期间暂时保留顶层 z-index：
+   * - 上升时立即置顶；
+   * - 鼠标移出或焦点离开后，先执行原有下降动画；
+   * - 等最长过渡结束后，再恢复原来的层级。
+   */
+  document.addEventListener('DOMContentLoaded', function () {
+    var folders = Array.prototype.slice.call(
+      document.querySelectorAll('.category-folders .category-folder')
+    );
+
+    if (!folders.length) return;
+
+    var topLayer = 10000 + folders.length;
+    var states = new WeakMap();
+
+    function timeToMilliseconds(value) {
+      value = String(value || '').trim();
+      if (!value) return 0;
+      if (value.slice(-2) === 'ms') return parseFloat(value) || 0;
+      if (value.slice(-1) === 's') return (parseFloat(value) || 0) * 1000;
+      return parseFloat(value) || 0;
+    }
+
+    function splitTimes(value) {
+      return String(value || '0s').split(',').map(timeToMilliseconds);
+    }
+
+    function longestTransitionOn(element) {
+      if (!element) return 0;
+
+      var style = window.getComputedStyle(element);
+      var durations = splitTimes(style.transitionDuration);
+      var delays = splitTimes(style.transitionDelay);
+      var count = Math.max(durations.length, delays.length);
+      var longest = 0;
+
+      for (var i = 0; i < count; i += 1) {
+        var duration = durations[i % durations.length] || 0;
+        var delay = delays[i % delays.length] || 0;
+        longest = Math.max(longest, duration + delay);
+      }
+
+      return longest;
+    }
+
+    function folderMotionTime(folder) {
+      return Math.max(
+        longestTransitionOn(folder),
+        longestTransitionOn(folder.querySelector('.category-folder-tab')),
+        longestTransitionOn(folder.querySelector('.category-folder-sheet'))
+      );
+    }
+
+    function getState(folder) {
+      var state = states.get(folder);
+      if (!state) {
+        state = {
+          originalInlineZIndex: folder.style.zIndex,
+          timer: null
+        };
+        states.set(folder, state);
+      }
+      return state;
+    }
+
+    function cancelLayerReset(folder) {
+      var state = getState(folder);
+      if (state.timer !== null) {
+        window.clearTimeout(state.timer);
+        state.timer = null;
+      }
+    }
+
+    function raiseFolder(folder) {
+      cancelLayerReset(folder);
+      topLayer += 1;
+      folder.style.zIndex = String(topLayer);
+      folder.setAttribute('data-folder-layer-state', 'raised');
+    }
+
+    function restoreFolderLayer(folder) {
+      var state = getState(folder);
+
+      /* 鼠标或键盘焦点重新进入时，不执行降层。 */
+      if (folder.matches(':hover') || folder.contains(document.activeElement)) {
+        raiseFolder(folder);
+        return;
+      }
+
+      if (state.originalInlineZIndex) {
+        folder.style.zIndex = state.originalInlineZIndex;
+      } else {
+        folder.style.removeProperty('z-index');
+      }
+
+      folder.removeAttribute('data-folder-layer-state');
+      state.timer = null;
+    }
+
+    function lowerFolderAfterMotion(folder) {
+      cancelLayerReset(folder);
+      folder.setAttribute('data-folder-layer-state', 'lowering');
+
+      var reduceMotion = window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var wait = reduceMotion ? 0 : folderMotionTime(folder);
+
+      /* 多留一帧，确保视觉位置已经完全回到底部。 */
+      var state = getState(folder);
+      state.timer = window.setTimeout(function () {
+        restoreFolderLayer(folder);
+      }, wait + 34);
+    }
+
+    folders.forEach(function (folder) {
+      folder.addEventListener('pointerenter', function () {
+        raiseFolder(folder);
+      });
+
+      folder.addEventListener('pointerleave', function () {
+        if (!folder.contains(document.activeElement)) {
+          lowerFolderAfterMotion(folder);
+        }
+      });
+
+      folder.addEventListener('focusin', function () {
+        raiseFolder(folder);
+      });
+
+      folder.addEventListener('focusout', function (event) {
+        if (!folder.contains(event.relatedTarget) && !folder.matches(':hover')) {
+          lowerFolderAfterMotion(folder);
+        }
+      });
+    });
+  });
+</script>
