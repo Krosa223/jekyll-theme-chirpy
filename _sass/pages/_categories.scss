@@ -221,8 +221,10 @@
   }
 
   .category-folder-tab {
-    min-width: 7.5rem;
-    padding-inline: 0.75rem;
+    min-width: 0;
+    gap: 0.35rem;
+    padding-inline: 0.45rem;
+    font-size: 0.85rem;
   }
 
   .category-folder-sheet {
@@ -248,6 +250,14 @@
     time {
       display: none;
     }
+  }
+}
+
+@media (max-width: 360px) {
+  .category-folder-tab {
+    gap: 0.25rem;
+    padding-inline: 0.3rem;
+    font-size: 0.75rem;
   }
 }
 
