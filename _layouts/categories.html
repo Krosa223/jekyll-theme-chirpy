@@ -17,12 +17,8 @@ layout: page
   {% endif %}
 {% endfor %}
 
-{% assign folder_depth = folder_count | minus: 1 %}
-{% assign stack_offset = folder_depth | times: 22 %}
-
 <div
   class="category-folders"
-  style="--folder-stack-offset: {{ stack_offset }}px"
   aria-label="{{ page.title }}"
 >
   {% assign folder_index = 0 %}
@@ -33,10 +29,8 @@ layout: page
     {% assign first_post = posts_of_category | first %}
 
     {% if category_name == first_post.categories[0] %}
-      {% assign folder_offset = folder_index | times: 22 %}
-      {% assign tab_offset = folder_index | times: 86 %}
-      {% assign mobile_tab_offset = folder_index | times: 47 %}
-      {% assign folder_layer = folder_index | plus: 1 %}
+      {% assign folder_layer = folder_count | minus: folder_index %}
+      {% assign folder_tab_layer = folder_layer | plus: 100 %}
       {% assign color_index = folder_index | modulo: 5 %}
       {% assign posts_size = posts_of_category | size %}
 
@@ -44,7 +38,7 @@ layout: page
 
       <section
         class="category-folder category-folder--{{ color_index }}"
-        style="--folder-offset: {{ folder_offset }}px; --tab-offset: {{ tab_offset }}px; --mobile-tab-offset: {{ mobile_tab_offset }}px; --folder-layer: {{ folder_layer }}"
+        style="--folder-layer: {{ folder_layer }}; --folder-tab-layer: {{ folder_tab_layer }}"
       >
         <a
           class="category-folder-tab"
