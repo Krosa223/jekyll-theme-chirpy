@@ -20,12 +20,37 @@
         '132910923'
       ];
       var selected = '7pje5o';
+      var hasStoredSelection = false;
 
       try {
         var stored = window.localStorage.getItem('krosa-wallpaper');
-        if (wallpapers.indexOf(stored) !== -1) selected = stored;
+        if (wallpapers.indexOf(stored) !== -1) {
+          selected = stored;
+          hasStoredSelection = true;
+        }
       } catch {
-        // Storage can be unavailable in private browsing contexts.
+        // Fall through to the preference cookie.
+      }
+
+      if (!hasStoredSelection) {
+        var prefix = 'krosa-wallpaper=';
+        var cookies = document.cookie.split(';');
+
+        for (var i = 0; i < cookies.length; i += 1) {
+          var cookie = cookies[i].trim();
+          if (cookie.indexOf(prefix) !== 0) continue;
+
+          var cookieValue = cookie.slice(prefix.length);
+
+          try {
+            cookieValue = decodeURIComponent(cookieValue);
+          } catch {
+            break;
+          }
+
+          if (wallpapers.indexOf(cookieValue) !== -1) selected = cookieValue;
+          break;
+        }
       }
 
       document.documentElement.setAttribute('data-wallpaper', selected);

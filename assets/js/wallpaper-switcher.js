@@ -20,6 +20,50 @@
     return wallpaperIds.indexOf(value) !== -1;
   }
 
+  function readCookie() {
+    var prefix = storageKey + '=';
+    var cookies = document.cookie.split(';');
+
+    for (var i = 0; i < cookies.length; i += 1) {
+      var cookie = cookies[i].trim();
+      if (cookie.indexOf(prefix) === 0) {
+        try {
+          return decodeURIComponent(cookie.slice(prefix.length));
+        } catch {
+          return null;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function readStoredWallpaper() {
+    try {
+      var stored = window.localStorage.getItem(storageKey);
+      if (isValidWallpaper(stored)) return stored;
+    } catch {
+      // Fall through to the preference cookie.
+    }
+
+    var cookieValue = readCookie();
+    return isValidWallpaper(cookieValue) ? cookieValue : null;
+  }
+
+  function storeWallpaper(wallpaper) {
+    try {
+      window.localStorage.setItem(storageKey, wallpaper);
+    } catch {
+      // The preference cookie below remains available as a fallback.
+    }
+
+    document.cookie =
+      storageKey +
+      '=' +
+      encodeURIComponent(wallpaper) +
+      '; path=/; max-age=31536000; SameSite=Lax';
+  }
+
   function initWallpaperPicker() {
     var picker = document.querySelector('.wallpaper-picker');
     var toggle = document.getElementById('wallpaper-toggle');
@@ -48,14 +92,13 @@
 
       if (!persist) return;
 
-      try {
-        window.localStorage.setItem(storageKey, wallpaper);
-      } catch {
-        // The visual choice still works when storage is unavailable.
-      }
+      storeWallpaper(wallpaper);
     }
 
-    applyWallpaper(root.getAttribute('data-wallpaper'), false);
+    applyWallpaper(
+      readStoredWallpaper() || root.getAttribute('data-wallpaper'),
+      false
+    );
 
     toggle.addEventListener('click', function () {
       setMenuOpen(menu.hidden);
@@ -86,6 +129,11 @@
       if (event.key === storageKey && isValidWallpaper(event.newValue)) {
         applyWallpaper(event.newValue, false);
       }
+    });
+
+    window.addEventListener('pageshow', function () {
+      var stored = readStoredWallpaper();
+      if (stored) applyWallpaper(stored, false);
     });
   }
 

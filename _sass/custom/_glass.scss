@@ -10,15 +10,20 @@
     0 16px 38px rgb(0 0 0 / 32%), inset 0 1px 0 rgb(255 255 255 / 12%);
   --glass-panel-bg: rgb(18 25 35 / 46%);
   --glass-shell-bg: rgb(10 16 25 / 12%);
-  --glass-heading-color: #f2f6f8;
-  --glass-text-color: #d9e2e8;
-  --glass-muted-color: #aebbc4;
-  --glass-text-shadow: 0 1px 1px rgb(0 0 0 / 68%);
+  --glass-heading-color: #ffffff;
+  --glass-text-color: #f1f5f7;
+  --glass-muted-color: #d0dae0;
+  --glass-text-shadow:
+    0 1px 2px rgb(0 0 0 / 82%), 0 0 5px rgb(0 0 0 / 28%);
   --glass-title-shadow:
     0 1px 2px rgb(0 0 0 / 80%), 0 0 12px rgb(0 0 0 / 46%);
-  --glass-sidebar-overlay: rgb(5 22 34 / 58%);
+  --glass-sidebar-overlay: rgb(5 22 34 / 50%);
   --glass-sidebar-border: rgb(255 255 255 / 12%);
   --glass-topbar-bg: rgb(15 22 32 / 42%);
+  --glass-chrome-color: #f8fcff;
+  --glass-chrome-muted-color: #e2edf3;
+  --glass-chrome-shadow:
+    0 1px 2px rgb(0 0 0 / 92%), 0 0 10px rgb(0 0 0 / 58%);
 }
 
 :root {
@@ -30,15 +35,20 @@
     0 14px 34px rgb(48 79 99 / 14%), inset 0 1px 0 rgb(255 255 255 / 82%);
   --glass-panel-bg: rgb(255 255 255 / 38%);
   --glass-shell-bg: rgb(255 255 255 / 9%);
-  --glass-heading-color: #172631;
-  --glass-text-color: #263944;
-  --glass-muted-color: #536773;
-  --glass-text-shadow: 0 1px 0 rgb(255 255 255 / 52%);
+  --glass-heading-color: #0b1820;
+  --glass-text-color: #172b36;
+  --glass-muted-color: #344d5a;
+  --glass-text-shadow:
+    0 1px 0 rgb(255 255 255 / 86%), 0 0 5px rgb(255 255 255 / 38%);
   --glass-title-shadow:
     0 1px 1px rgb(255 255 255 / 90%), 0 0 12px rgb(255 255 255 / 70%);
-  --glass-sidebar-overlay: rgb(7 42 60 / 48%);
+  --glass-sidebar-overlay: rgb(7 42 60 / 40%);
   --glass-sidebar-border: rgb(255 255 255 / 18%);
   --glass-topbar-bg: rgb(255 255 255 / 32%);
+  --glass-chrome-color: #f8fcff;
+  --glass-chrome-muted-color: #e2edf3;
+  --glass-chrome-shadow:
+    0 1px 2px rgb(0 0 0 / 92%), 0 0 10px rgb(0 0 0 / 58%);
 }
 
 [data-bs-theme='dark'] {
@@ -135,8 +145,8 @@ body {
   background-position: center bottom;
   background-size: cover;
   background-repeat: no-repeat;
-  filter: blur(8px) saturate(88%);
-  transform: scale(1.04);
+  filter: brightness(1.04) saturate(94%);
+  transform: scale(1.012);
 }
 
 #sidebar::after {
@@ -144,8 +154,8 @@ body {
   z-index: 0;
   background: var(--glass-sidebar-overlay);
   box-shadow: inset -1px 0 0 rgb(255 255 255 / 10%);
-  -webkit-backdrop-filter: blur(4px) saturate(108%);
-  backdrop-filter: blur(4px) saturate(108%);
+  -webkit-backdrop-filter: blur(2px) saturate(108%);
+  backdrop-filter: blur(2px) saturate(108%);
 }
 
 #sidebar > * {
@@ -156,6 +166,15 @@ body {
 #sidebar .nav-link.active {
   background: rgb(255 255 255 / 18%);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 13%);
+}
+
+#sidebar :is(.site-title, .site-subtitle, .nav-link) {
+  text-shadow:
+    0 1px 2px rgb(0 0 0 / 82%), 0 0 7px rgb(0 0 0 / 38%);
+}
+
+#sidebar .nav-link {
+  font-weight: 600;
 }
 
 #sidebar #avatar {
@@ -286,6 +305,7 @@ main > article:not([data-toc]) > .content,
   --bs-secondary-color: var(--glass-muted-color);
 
   color: var(--glass-text-color);
+  font-weight: 500;
   border: 1px solid var(--glass-card-border) !important;
   border-radius: 0.5rem;
   background: var(--glass-card-bg) !important;
@@ -293,6 +313,15 @@ main > article:not([data-toc]) > .content,
   text-shadow: var(--glass-text-shadow);
   -webkit-backdrop-filter: blur(14px) saturate(118%);
   backdrop-filter: blur(14px) saturate(118%);
+
+  :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: 600;
+    text-shadow: var(--glass-title-shadow);
+  }
+
+  strong {
+    font-weight: 700;
+  }
 }
 
 main > article > .content:has(
@@ -390,15 +419,39 @@ main > article:not([data-toc]) > .content,
 }
 
 footer {
+  color: var(--glass-chrome-muted-color);
+  font-weight: 500;
   border-top-color: var(--glass-card-border);
   background: transparent;
-  text-shadow: var(--glass-text-shadow);
+  text-shadow: var(--glass-chrome-shadow);
+}
+
+footer a {
+  color: var(--glass-chrome-color) !important;
+  font-weight: 600;
 }
 
 .dynamic-title,
-#breadcrumb {
-  color: var(--glass-heading-color);
-  text-shadow: var(--glass-title-shadow);
+#breadcrumb,
+#topbar-title,
+#sidebar-trigger,
+#search-trigger,
+#search-cancel {
+  color: var(--glass-chrome-color);
+  text-shadow: var(--glass-chrome-shadow);
+}
+
+.dynamic-title {
+  font-weight: 700;
+}
+
+#breadcrumb,
+#topbar-title {
+  font-weight: 600;
+}
+
+#breadcrumb a {
+  color: inherit;
 }
 
 @media (max-width: 991px) {

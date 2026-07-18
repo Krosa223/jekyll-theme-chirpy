@@ -66,3 +66,17 @@
   --glass-background-image: url('{{ "/assets/img/backgrounds/art-132910923.webp" | relative_url }}');
   --glass-background-position: left center;
 }
+
+:root:is(
+    [data-wallpaper='1k5kdg'],
+    [data-wallpaper='d8p83m'],
+    [data-wallpaper='gp2q9q'],
+    [data-wallpaper='134825297'],
+    [data-wallpaper='139576849'],
+    [data-wallpaper='132910923']
+  ) {
+  --glass-chrome-color: #102630;
+  --glass-chrome-muted-color: #294653;
+  --glass-chrome-shadow:
+    0 1px 1px rgb(255 255 255 / 96%), 0 0 10px rgb(255 255 255 / 76%);
+}
