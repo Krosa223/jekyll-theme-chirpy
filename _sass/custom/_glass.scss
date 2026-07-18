@@ -13,20 +13,17 @@
   --glass-heading-color: #ffffff;
   --glass-text-color: #f1f5f7;
   --glass-muted-color: #d0dae0;
-  --glass-text-shadow:
-    0 1px 2px rgb(0 0 0 / 82%), 0 0 5px rgb(0 0 0 / 28%);
-  --glass-title-shadow:
-    0 1px 2px rgb(0 0 0 / 80%), 0 0 12px rgb(0 0 0 / 46%);
+  --glass-text-shadow: none;
+  --glass-title-shadow: none;
   --glass-sidebar-overlay: rgb(5 22 34 / 50%);
   --glass-sidebar-border: rgb(255 255 255 / 12%);
   --glass-topbar-bg: rgb(15 22 32 / 42%);
   --glass-chrome-color: #f8fcff;
   --glass-chrome-muted-color: #e2edf3;
-  --glass-chrome-shadow:
-    0 1px 2px rgb(0 0 0 / 92%), 0 0 10px rgb(0 0 0 / 58%);
-  --reading-line-bg: rgb(7 13 20 / 20%);
-  --reading-line-edge: rgb(255 255 255 / 22%);
-  --reading-line-shadow: 0 1px 3px rgb(0 0 0 / 9%);
+  --glass-chrome-shadow: none;
+  --reading-paragraph-bg: rgb(7 13 20 / 20%);
+  --reading-paragraph-edge: rgb(255 255 255 / 22%);
+  --reading-paragraph-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
 
 :root {
@@ -41,20 +38,17 @@
   --glass-heading-color: #0b1820;
   --glass-text-color: #172b36;
   --glass-muted-color: #344d5a;
-  --glass-text-shadow:
-    0 1px 0 rgb(255 255 255 / 86%), 0 0 5px rgb(255 255 255 / 38%);
-  --glass-title-shadow:
-    0 1px 1px rgb(255 255 255 / 90%), 0 0 12px rgb(255 255 255 / 70%);
+  --glass-text-shadow: none;
+  --glass-title-shadow: none;
   --glass-sidebar-overlay: rgb(7 42 60 / 40%);
   --glass-sidebar-border: rgb(255 255 255 / 18%);
   --glass-topbar-bg: rgb(255 255 255 / 32%);
   --glass-chrome-color: #f8fcff;
   --glass-chrome-muted-color: #e2edf3;
-  --glass-chrome-shadow:
-    0 1px 2px rgb(0 0 0 / 92%), 0 0 10px rgb(0 0 0 / 58%);
-  --reading-line-bg: rgb(255 255 255 / 18%);
-  --reading-line-edge: rgb(255 255 255 / 46%);
-  --reading-line-shadow: 0 1px 3px rgb(35 62 76 / 6%);
+  --glass-chrome-shadow: none;
+  --reading-paragraph-bg: rgb(255 255 255 / 18%);
+  --reading-paragraph-edge: rgb(255 255 255 / 46%);
+  --reading-paragraph-shadow: 0 4px 12px rgb(35 62 76 / 7%);
 }
 
 [data-bs-theme='dark'] {
@@ -316,13 +310,14 @@ main > article:not([data-toc]) > .content,
   border-radius: 0.5rem;
   background: var(--glass-card-bg) !important;
   box-shadow: var(--glass-card-shadow) !important;
-  text-shadow: var(--glass-text-shadow);
+  text-shadow: none;
   -webkit-backdrop-filter: blur(14px) saturate(118%);
   backdrop-filter: blur(14px) saturate(118%);
 
   :is(h1, h2, h3, h4, h5, h6) {
     font-weight: 600;
-    text-shadow: var(--glass-title-shadow);
+    font-family: inherit;
+    text-shadow: none;
   }
 
   strong {
@@ -380,7 +375,7 @@ main > article:not([data-toc]) > .content,
   margin-top: 2rem;
   font-size: 1.0625rem;
   font-weight: 400;
-  line-height: 2.15;
+  line-height: 1.85;
   text-shadow: none;
 }
 
@@ -388,19 +383,22 @@ main > article:not([data-toc]) > .content,
   margin-bottom: 1.25rem;
 }
 
+.post-article > .content > p:not(:has(img, picture, video, audio, iframe)) {
+  padding: 0.85rem 1rem 0.95rem;
+  border: 1px solid var(--reading-paragraph-edge);
+  border-radius: 0.5rem;
+  background: var(--reading-paragraph-bg);
+  box-shadow: var(--reading-paragraph-shadow);
+  -webkit-backdrop-filter: blur(6px) saturate(108%);
+  backdrop-filter: blur(6px) saturate(108%);
+}
+
 .post-article > .content > p:last-child {
   margin-bottom: 0;
 }
 
 .reading-line-glass {
-  display: inline;
-  padding: 0.05em 0.36em 0.1em;
-  border: 1px solid var(--reading-line-edge);
-  border-radius: 0.72rem;
-  background: var(--reading-line-bg);
-  box-shadow: var(--reading-line-shadow);
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
+  display: contents;
 }
 
 .post-article > .post-tail-wrapper {
@@ -571,15 +569,15 @@ main > article:not([data-toc]) > .content,
 }
 
 footer {
-  color: var(--glass-chrome-muted-color);
+  color: var(--glass-muted-color);
   font-weight: 500;
   border-top-color: var(--glass-card-border);
   background: transparent;
-  text-shadow: var(--glass-chrome-shadow);
+  text-shadow: none;
 }
 
 footer a {
-  color: var(--glass-chrome-color) !important;
+  color: var(--glass-text-color) !important;
   font-weight: 600;
 }
 
@@ -589,8 +587,9 @@ footer a {
 #sidebar-trigger,
 #search-trigger,
 #search-cancel {
-  color: var(--glass-chrome-color);
-  text-shadow: var(--glass-chrome-shadow);
+  color: var(--glass-text-color);
+  font-family: inherit;
+  text-shadow: none;
 }
 
 .dynamic-title {
@@ -599,11 +598,38 @@ footer a {
 
 #breadcrumb,
 #topbar-title {
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 #breadcrumb a {
   color: inherit;
+}
+
+#main-wrapper :is(
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6,
+    .dynamic-title,
+    #breadcrumb,
+    #topbar-title,
+    .post-meta,
+    .pagination,
+    #archives .date.day,
+    .tag span,
+    .post-tag,
+    time
+  ) {
+  font-family: inherit;
+  letter-spacing: 0;
+}
+
+#main-wrapper,
+#main-wrapper * {
+  text-shadow: none;
 }
 
 @media (max-width: 991px) {
@@ -637,7 +663,7 @@ footer a {
 
   .post-article > .content {
     font-size: 1.05rem;
-    line-height: 1.9;
+    line-height: 1.8;
   }
 }
 
@@ -655,13 +681,11 @@ footer a {
 
   .post-article > .content {
     font-size: 1rem;
-    line-height: 1.85;
+    line-height: 1.75;
   }
 
-  .reading-line-glass {
-    padding-right: 0.28em;
-    padding-left: 0.28em;
-    border-radius: 0.55rem;
+  .post-article > .content > p:not(:has(img, picture, video, audio, iframe)) {
+    padding: 0.75rem 0.8rem 0.8rem;
   }
 
   .post-article > .post-tail-wrapper {
@@ -676,7 +700,7 @@ footer a {
     --glass-panel-bg: rgb(255 255 255 / 90%);
     --glass-shell-bg: rgb(255 255 255 / 70%);
     --glass-sidebar-overlay: rgb(7 42 60 / 82%);
-    --reading-line-bg: rgb(255 255 255 / 58%);
+    --reading-paragraph-bg: rgb(255 255 255 / 58%);
   }
 
   [data-bs-theme='dark'] {
@@ -685,7 +709,7 @@ footer a {
     --glass-panel-bg: rgb(18 25 35 / 92%);
     --glass-shell-bg: rgb(10 16 25 / 68%);
     --glass-sidebar-overlay: rgb(5 22 34 / 84%);
-    --reading-line-bg: rgb(7 13 20 / 54%);
+    --reading-paragraph-bg: rgb(7 13 20 / 54%);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -695,7 +719,7 @@ footer a {
       --glass-panel-bg: rgb(18 25 35 / 92%);
       --glass-shell-bg: rgb(10 16 25 / 68%);
       --glass-sidebar-overlay: rgb(5 22 34 / 84%);
-      --reading-line-bg: rgb(7 13 20 / 54%);
+      --reading-paragraph-bg: rgb(7 13 20 / 54%);
     }
   }
 }
