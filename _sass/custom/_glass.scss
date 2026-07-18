@@ -25,9 +25,8 @@
   --glass-chrome-shadow:
     0 1px 2px rgb(0 0 0 / 92%), 0 0 10px rgb(0 0 0 / 58%);
   --reading-line-bg: rgb(7 13 20 / 20%);
-  --reading-line-edge: rgb(255 255 255 / 12%);
-  --reading-line-shadow:
-    0 2px 8px rgb(0 0 0 / 12%), inset 0 1px 0 rgb(255 255 255 / 9%);
+  --reading-line-edge: rgb(255 255 255 / 22%);
+  --reading-line-shadow: 0 1px 3px rgb(0 0 0 / 9%);
 }
 
 :root {
@@ -54,9 +53,8 @@
   --glass-chrome-shadow:
     0 1px 2px rgb(0 0 0 / 92%), 0 0 10px rgb(0 0 0 / 58%);
   --reading-line-bg: rgb(255 255 255 / 18%);
-  --reading-line-edge: rgb(255 255 255 / 26%);
-  --reading-line-shadow:
-    0 2px 8px rgb(35 62 76 / 8%), inset 0 1px 0 rgb(255 255 255 / 34%);
+  --reading-line-edge: rgb(255 255 255 / 46%);
+  --reading-line-shadow: 0 1px 3px rgb(35 62 76 / 6%);
 }
 
 [data-bs-theme='dark'] {
@@ -341,21 +339,48 @@ main > article:not([data-toc]) > .content,
   margin-left: auto;
 }
 
+.post-article.post-article {
+  text-shadow: none;
+}
+
+.post-article.post-article :is(h1, h2, h3, h4, h5, h6) {
+  text-shadow: none;
+}
+
 .post-article .post-head-meta {
   margin-top: 1.25rem !important;
+  color: var(--glass-text-color) !important;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-shadow: none;
 }
 
 .post-article .post-head-details {
   flex-wrap: wrap;
   width: 100%;
-  gap: 0.5rem 1.5rem;
+  gap: 0.35rem 1rem;
+  margin-top: 0.15rem;
+}
+
+.post-article .post-head-details > div {
+  margin-left: auto;
+}
+
+.post-article .post-head-meta :is(a, em, time) {
+  color: inherit;
+  font-family: inherit;
+  font-style: normal;
+  font-weight: inherit;
+  text-shadow: none;
 }
 
 .post-article > .content {
   margin-top: 2rem;
   font-size: 1.0625rem;
   font-weight: 400;
-  line-height: 1.95;
+  line-height: 2.15;
   text-shadow: none;
 }
 
@@ -369,25 +394,86 @@ main > article:not([data-toc]) > .content,
 
 .reading-line-glass {
   display: inline;
-  padding: 0.03em 0.24em 0.08em;
-  border-radius: 0.2rem;
+  padding: 0.05em 0.36em 0.1em;
+  border: 1px solid var(--reading-line-edge);
+  border-radius: 0.72rem;
   background: var(--reading-line-bg);
-  box-shadow:
-    0 0 0 1px var(--reading-line-edge), var(--reading-line-shadow);
+  box-shadow: var(--reading-line-shadow);
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-  -webkit-backdrop-filter: blur(5px) saturate(105%);
-  backdrop-filter: blur(5px) saturate(105%);
 }
 
 .post-article > .post-tail-wrapper {
   margin-top: 4.5rem;
+  color: var(--glass-text-color) !important;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-shadow: none;
+}
+
+.post-article > .post-tail-wrapper a {
+  color: inherit;
+  text-shadow: none;
 }
 
 #main-wrapper:has(.post-article) #tail-wrapper > .post-navigation {
   width: 100%;
   max-width: 47.5rem;
   margin: 2.25rem auto 0;
+}
+
+#main-wrapper:has(.post-article) .post-navigation .btn {
+  color: var(--glass-text-color);
+  background: var(--glass-card-bg);
+  box-shadow: var(--glass-card-shadow);
+  text-shadow: none;
+  -webkit-backdrop-filter: blur(14px) saturate(118%);
+  backdrop-filter: blur(14px) saturate(118%);
+}
+
+#main-wrapper:has(.post-article) .post-navigation .btn::before {
+  color: var(--glass-text-color);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-shadow: none;
+  opacity: 0.88;
+}
+
+#main-wrapper:has(.post-article) .post-navigation p {
+  color: var(--glass-text-color);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  text-shadow: none;
+}
+
+#main-wrapper:has(.post-article) :is(#breadcrumb, #topbar-title) {
+  color: var(--glass-text-color);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-shadow: none;
+}
+
+#main-wrapper:has(.post-article) #breadcrumb a {
+  color: inherit;
+}
+
+@media (min-width: 992px) {
+  main > .post-article {
+    display: flex;
+    flex-direction: column;
+    min-height: clamp(38rem, calc(100vh - 7rem), 44rem);
+  }
+
+  .post-article > .post-tail-wrapper {
+    margin-top: auto;
+    padding-top: 3rem;
+  }
 }
 
 main > article > .content:has(
@@ -557,9 +643,14 @@ footer a {
 
 @media (max-width: 575px) {
   .post-article .post-head-details {
+    display: flex !important;
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
+  }
+
+  .post-article .post-head-details > div {
+    margin-left: 0;
   }
 
   .post-article > .content {
@@ -568,9 +659,9 @@ footer a {
   }
 
   .reading-line-glass {
-    padding-right: 0.18em;
-    padding-left: 0.18em;
-    border-radius: 0.18rem;
+    padding-right: 0.28em;
+    padding-left: 0.28em;
+    border-radius: 0.55rem;
   }
 
   .post-article > .post-tail-wrapper {
