@@ -568,41 +568,42 @@ main > article:not([data-toc]) > .content,
   padding: 1rem;
 }
 
-footer {
-  color: var(--glass-muted-color);
+#main-wrapper footer {
+  color: var(--glass-text-color);
   font-weight: 500;
   border-top-color: var(--glass-card-border);
   background: transparent;
   text-shadow: none;
 }
 
-footer a {
+#main-wrapper footer a {
   color: var(--glass-text-color) !important;
   font-weight: 600;
 }
 
-.dynamic-title,
-#breadcrumb,
-#topbar-title,
-#sidebar-trigger,
-#search-trigger,
-#search-cancel {
+#main-wrapper :is(
+    .dynamic-title,
+    #breadcrumb,
+    #topbar-title,
+    #sidebar-trigger,
+    #search-trigger,
+    #search-cancel
+  ) {
   color: var(--glass-text-color);
   font-family: inherit;
   text-shadow: none;
 }
 
-.dynamic-title {
+#main-wrapper .dynamic-title {
   font-weight: 700;
 }
 
-#breadcrumb,
-#topbar-title {
+#main-wrapper :is(#breadcrumb, #topbar-title) {
   font-size: 0.9rem;
   font-weight: 500;
 }
 
-#breadcrumb a {
+#main-wrapper #breadcrumb a {
   color: inherit;
 }
 
