@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+compressor="$repo_root/assets/Post_image/_image_compressor.py"
+
+echo "Running the article image compressor before publishing..."
+
+if command -v py >/dev/null 2>&1 && py -3 -c "from PIL import Image" >/dev/null 2>&1; then
+  py -3 "$compressor"
+elif command -v python >/dev/null 2>&1 && python -c "from PIL import Image" >/dev/null 2>&1; then
+  python "$compressor"
+else
+  echo "Image compression stopped: Python with Pillow was not found."
+  echo "Install it with: python -m pip install Pillow"
+  exit 1
+fi
+
+# Include generated WebP files and source-image removals in the same commit.
+git -C "$repo_root" add -A -- "assets/Post_image"

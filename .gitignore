@@ -30,3 +30,6 @@ package-lock.json
 *~
 .DS_Store
 Thumbs.db
+
+# Local originals archived by the article image compressor
+/assets/Post_image/A_原图/
