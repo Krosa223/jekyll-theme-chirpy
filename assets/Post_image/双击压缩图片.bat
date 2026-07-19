@@ -3,26 +3,33 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 
-where py >nul 2>nul
-if not errorlevel 1 (
-  py -3 -c "from PIL import Image" >nul 2>nul
-  if not errorlevel 1 (
-    py -3 "%~dp0_image_compressor.py"
-    goto :finish
-  )
+set "PYTHON_EXE="
+
+for /d %%D in ("%LocalAppData%\Programs\Python\Python*") do (
+  if not defined PYTHON_EXE if exist "%%~fD\python.exe" set "PYTHON_EXE=%%~fD\python.exe"
 )
 
-where python >nul 2>nul
-if not errorlevel 1 (
-  python -c "from PIL import Image" >nul 2>nul
-  if not errorlevel 1 (
-    python "%~dp0_image_compressor.py"
-    goto :finish
-  )
+if not defined PYTHON_EXE if exist "%UserProfile%\scoop\apps\python\current\python.exe" set "PYTHON_EXE=%UserProfile%\scoop\apps\python\current\python.exe"
+
+if not defined PYTHON_EXE (
+  for /f "delims=" %%P in ('powershell.exe -NoProfile -Command "$p = Get-Command python.exe -ErrorAction SilentlyContinue; if ($p) { $p.Source }"') do set "PYTHON_EXE=%%P"
 )
 
-echo [无法运行] 没有找到可用的 Python 和 Pillow。
-echo 请先安装 Pillow：python -m pip install Pillow
+if not defined PYTHON_EXE goto :python_missing
+
+"%PYTHON_EXE%" -c "from PIL import Image" >nul 2>nul
+if errorlevel 1 goto :pillow_missing
+
+"%PYTHON_EXE%" "%CD%\_image_compressor.py"
+goto :finish
+
+:python_missing
+echo [Cannot run] Python was not found on this computer.
+goto :finish
+
+:pillow_missing
+echo [Cannot run] Pillow is missing from Python.
+echo Install it with: "%PYTHON_EXE%" -m pip install Pillow
 
 :finish
 echo.
