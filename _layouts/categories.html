@@ -104,7 +104,7 @@ layout: page
     {% if category_name == first_post.categories[0] %}
       {% assign folder_layer = folder_count | minus: folder_index %}
       {% assign folder_tab_layer = folder_layer | plus: 100 %}
-      {% assign color_index = folder_index | modulo: 5 %}
+      {% assign color_index = folder_index | modulo: 8 %}
       {% assign posts_size = posts_of_category | size %}
 
       {% capture category_url %}/categories/{{ category_name | slugify | url_encode }}/{% endcapture %}
