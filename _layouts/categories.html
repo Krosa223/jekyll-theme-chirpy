@@ -162,6 +162,34 @@ layout: page
     var container = document.querySelector('.category-folders');
     if (!container) return;
 
+    var menuToggle = document.getElementById('category-menu-toggle');
+    var quickMenu = document.getElementById('category-quick-menu');
+    var quickPicker = document.querySelector('.category-quick-picker');
+
+    function setMenuOpen(open) {
+      if (!menuToggle || !quickMenu) return;
+
+      menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      quickMenu.hidden = !open;
+    }
+
+    if (menuToggle && quickMenu && quickPicker) {
+      menuToggle.addEventListener('click', function () {
+        setMenuOpen(menuToggle.getAttribute('aria-expanded') !== 'true');
+      });
+
+      document.addEventListener('click', function (event) {
+        if (!quickPicker.contains(event.target)) setMenuOpen(false);
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && menuToggle.getAttribute('aria-expanded') === 'true') {
+          setMenuOpen(false);
+          menuToggle.focus();
+        }
+      });
+    }
+
     var folders = Array.prototype.slice.call(
       container.querySelectorAll('.category-folder')
     );
@@ -268,13 +296,10 @@ layout: page
 
       front = front || folders[0];
 
-      var back = null;
-      for (var j = 0; j < folders.length; j += 1) {
-        if (folders[j] !== front) {
-          back = folders[j];
-          break;
-        }
-      }
+      var frontIndex = folders.indexOf(front);
+      var back = folders.length > 1
+        ? folders[(frontIndex + 1) % folders.length]
+        : null;
 
       folders.forEach(function (folder) {
         folder.classList.remove('is-glass-front', 'is-glass-back');
