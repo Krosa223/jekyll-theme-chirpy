@@ -8,40 +8,47 @@ layout: default
   {% if page.layout == 'page' or page.collection == 'tabs' %}
     {% assign tab_key = page.title | downcase %}
     {% assign title = site.data.locales[lang].tabs[tab_key] | default: page.title %}
-    <h1 class="dynamic-title">
-      {{ title }}
-    </h1>
     {% if page.layout == 'categories' %}
-      <div class="category-quick-picker">
-        <button
-          id="category-menu-toggle"
-          class="category-menu-toggle"
-          type="button"
-          aria-expanded="false"
-          aria-controls="category-quick-menu"
-          aria-label="选择分类文件夹"
-          title="选择分类文件夹"
-        >
-          <i class="fas fa-bars" aria-hidden="true"></i>
-        </button>
+      <header class="category-page-heading">
+        <h1 class="dynamic-title">
+          {{ title }}
+        </h1>
 
-        <nav id="category-quick-menu" class="category-quick-menu" aria-label="分类文件夹" hidden>
-          {% assign menu_categories = site.categories | sort %}
-          {% for category in menu_categories %}
-            {% assign category_name = category | first %}
-            {% assign posts_of_category = category | last %}
-            {% assign first_post = posts_of_category | first %}
-            {% if category_name == first_post.categories[0] %}
-              {% capture category_url %}/categories/{{ category_name | slugify | url_encode }}/{% endcapture %}
-              <a class="category-quick-menu-item" href="{{ category_url | relative_url }}">
-                <i class="far fa-folder-open fa-fw" aria-hidden="true"></i>
-                <span>{{ category_name }}</span>
-                <small>{{ posts_of_category | size }}</small>
-              </a>
-            {% endif %}
-          {% endfor %}
-        </nav>
-      </div>
+        <div class="category-quick-picker">
+          <button
+            id="category-menu-toggle"
+            class="category-menu-toggle"
+            type="button"
+            aria-expanded="false"
+            aria-controls="category-quick-menu"
+            aria-label="选择分类文件夹"
+            title="选择分类文件夹"
+          >
+            <i class="fas fa-bars" aria-hidden="true"></i>
+          </button>
+
+          <nav id="category-quick-menu" class="category-quick-menu" aria-label="分类文件夹" hidden>
+            {% assign menu_categories = site.categories | sort %}
+            {% for category in menu_categories %}
+              {% assign category_name = category | first %}
+              {% assign posts_of_category = category | last %}
+              {% assign first_post = posts_of_category | first %}
+              {% if category_name == first_post.categories[0] %}
+                {% capture category_url %}/categories/{{ category_name | slugify | url_encode }}/{% endcapture %}
+                <a class="category-quick-menu-item" href="{{ category_url | relative_url }}">
+                  <i class="far fa-folder-open fa-fw" aria-hidden="true"></i>
+                  <span>{{ category_name }}</span>
+                  <small>{{ posts_of_category | size }}</small>
+                </a>
+              {% endif %}
+            {% endfor %}
+          </nav>
+        </div>
+      </header>
+    {% else %}
+      <h1 class="dynamic-title">
+        {{ title }}
+      </h1>
     {% endif %}
     <div class="content{% if page.layout == 'tags' or page.layout == 'archives' %} glass-index-content{% endif %}">
       {{ content }}
