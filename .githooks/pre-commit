@@ -3,7 +3,7 @@
 set -eu
 
 repo_root="$(git rev-parse --show-toplevel)"
-compressor="$repo_root/assets/Post_image/_image_compressor.py"
+compressor="$repo_root/assets/post_image/_image_compressor.py"
 
 echo "Running the article image compressor before publishing..."
 
@@ -18,4 +18,4 @@ else
 fi
 
 # Include generated WebP files and source-image removals in the same commit.
-git -C "$repo_root" add -A -- "assets/Post_image"
+git -C "$repo_root" add -A -- "assets/post_image"

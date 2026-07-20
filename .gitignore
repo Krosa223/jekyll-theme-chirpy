@@ -31,5 +31,7 @@ package-lock.json
 .DS_Store
 Thumbs.db
 
-# Local originals archived by the article image compressor
-/assets/Post_image/A_原图/
+# Local source images
+/assets/post_image/A_原图/
+/assets/img/原图/
+/assets/img/原图/
