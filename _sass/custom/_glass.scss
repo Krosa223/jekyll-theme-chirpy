@@ -808,12 +808,18 @@ main > article:not([data-toc]) > .content,
   margin-top: 2.75rem;
 }
 
+#post-list {
+  width: 100%;
+  max-width: 50rem;
+  margin-inline: auto;
+}
+
 #post-list .post-preview {
-  min-height: 10.5rem;
+  min-height: 11rem;
 }
 
 #post-list .post-preview-media {
-  min-height: 10.5rem;
+  min-height: 11rem;
   overflow: hidden;
 }
 
