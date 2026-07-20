@@ -11,7 +11,7 @@ layout: default
     <h1 class="dynamic-title">
       {{ title }}
     </h1>
-    <div class="content">
+    <div class="content{% if page.layout == 'tags' or page.layout == 'archives' %} glass-index-content{% endif %}">
       {{ content }}
     </div>
   {% else %}

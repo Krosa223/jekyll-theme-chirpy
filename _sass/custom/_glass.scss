@@ -476,7 +476,8 @@ main > article:not([data-toc]) > .content,
 
 main > article > .content:has(
     > :is(.category-folders, #tags, #archives, #page-category, #page-tag)
-  ) {
+  ),
+main > article > .content.glass-index-content {
   margin-top: 0;
   padding: 0;
   border: 0 !important;
@@ -549,9 +550,12 @@ main > article:not([data-toc]) > .content,
   padding: 1.5rem;
 }
 
-#archives li:nth-child(odd) {
-  background-color: transparent;
-  background-image: none;
+#archives ul li,
+#archives ul li:nth-child(odd) {
+  border: 0;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none;
 }
 
 #tags .tag,
