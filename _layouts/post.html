@@ -14,85 +14,89 @@ script_includes:
 {% include toc-status.html %}
 
 <article class="post-article px-1" data-toc="{{ enable_toc }}">
-  <header>
-    <h1 data-toc-skip>{{ page.title }}</h1>
-    {% if page.description %}
-      <p class="post-desc fw-light mb-4">{{ page.description }}</p>
+  {% if page.author %}
+    {% assign authors = page.author %}
+  {% elsif page.authors %}
+    {% assign authors = page.authors %}
+  {% endif %}
+
+  {% if page.image %}
+    {% capture hero_src %}src="{{ page.image.path | default: page.image }}"{% endcapture %}
+    {% capture hero_alt %}alt="{{ page.image.alt | xml_escape | default: "Preview Image" }}"{% endcapture %}
+    {% if page.image.lqip %}
+      {%- capture hero_lqip -%}lqip="{{ page.image.lqip }}"{%- endcapture -%}
+    {% endif %}
+  {% endif %}
+
+  <header class="post-hero{% if page.image %} post-hero-with-cover{% else %} post-hero-plain{% endif %}">
+    {% if page.image %}
+      <div class="post-hero-media">
+        <img {{ hero_src }} class="post-hero-image" {{ hero_alt }} w="1200" h="630" {{ hero_lqip }}>
+      </div>
     {% endif %}
 
-    <div class="post-head-meta post-meta text-muted">
-      <!-- published date -->
-      <span class="post-date">
-        {{ site.data.locales[lang].post.posted }}
-        {% include datetime.html date=page.date tooltip=true lang=lang %}
-      </span>
-
-      <!-- lastmod date -->
-      {% if page.last_modified_at and page.last_modified_at != page.date %}
-        <span class="post-date">
-          {{ site.data.locales[lang].post.updated }}
-          {% include datetime.html date=page.last_modified_at tooltip=true lang=lang %}
-        </span>
+    <div class="post-hero-content">
+      <h1 data-toc-skip>{{ page.title }}</h1>
+      {% if page.description %}
+        <p class="post-desc">{{ page.description }}</p>
       {% endif %}
 
-      {% if page.image %}
-        {% capture src %}src="{{ page.image.path | default: page.image }}"{% endcapture %}
-        {% capture class %}class="preview-img{% if page.image.no_bg %}{{ ' no-bg' }}{% endif %}"{% endcapture %}
-        {% capture alt %}alt="{{ page.image.alt | xml_escape | default: "Preview Image" }}"{% endcapture %}
+      <div class="post-head-meta post-meta">
+        <div class="post-hero-facts">
+          <span class="post-hero-fact post-date">
+            <i class="far fa-calendar-alt fa-fw" aria-hidden="true"></i>
+            {{ site.data.locales[lang].post.posted }}
+            {% include datetime.html date=page.date tooltip=true lang=lang show_time=true %}
+          </span>
 
-        {% if page.image.lqip %}
-          {%- capture lqip -%}lqip="{{ page.image.lqip }}"{%- endcapture -%}
-        {% endif %}
+          <span class="post-hero-fact post-author">
+            <i class="far fa-user fa-fw" aria-hidden="true"></i>
+            {{ site.data.locales[lang].post.written_by }}
+            <em>
+              {% if authors %}
+                {% for author in authors %}
+                  {% if site.data.authors[author].url -%}
+                    <a href="{{ site.data.authors[author].url }}">{{ site.data.authors[author].name }}</a>
+                  {%- else -%}
+                    {{ site.data.authors[author].name }}
+                  {%- endif %}
+                  {% unless forloop.last %}{{ '</em>, <em>' }}{% endunless %}
+                {% endfor %}
+              {% else %}
+                <a href="{{ site.social.links[0] }}">{{ site.social.name }}</a>
+              {% endif %}
+            </em>
+          </span>
 
-        <div class="mt-3 mb-3">
-          <img {{ src }} {{ class }} {{ alt }} w="1200" h="630" {{ lqip }}>
-          {%- if page.image.alt -%}
-            <figcaption class="text-center pt-2 pb-2">{{ page.image.alt }}</figcaption>
-          {%- endif -%}
-        </div>
-      {% endif %}
+          <span class="post-hero-fact">
+            <i class="far fa-clock fa-fw" aria-hidden="true"></i>
+            {% include read-time.html content=content prompt=true lang=lang %}
+          </span>
 
-      <div class="post-head-details d-flex justify-content-between">
-        <!-- author(s) -->
-        <span>
-          {% if page.author %}
-            {% assign authors = page.author %}
-          {% elsif page.authors %}
-            {% assign authors = page.authors %}
-          {% endif %}
-
-          {{ site.data.locales[lang].post.written_by }}
-
-          <em>
-            {% if authors %}
-              {% for author in authors %}
-                {% if site.data.authors[author].url -%}
-                  <a href="{{ site.data.authors[author].url }}">{{ site.data.authors[author].name }}</a>
-                {%- else -%}
-                  {{ site.data.authors[author].name }}
-                {%- endif %}
-                {% unless forloop.last %}{{ '</em>, <em>' }}{% endunless %}
-              {% endfor %}
-            {% else %}
-              <a href="{{ site.social.links[0] }}">{{ site.social.name }}</a>
-            {% endif %}
-          </em>
-        </span>
-
-        <div>
-          <!-- pageviews -->
           {% if site.pageviews.provider and site.analytics[site.pageviews.provider].id %}
-            <span>
-              <em id="pageviews">
-                <i class="fas fa-spinner fa-spin small"></i>
-              </em>
+            <span class="post-hero-fact">
+              <i class="far fa-eye fa-fw" aria-hidden="true"></i>
+              <em id="pageviews"><i class="fas fa-spinner fa-spin small"></i></em>
               {{ site.data.locales[lang].post.pageview_measure }}
             </span>
           {% endif %}
 
-          <!-- read time -->
-          {% include read-time.html content=content prompt=true lang=lang %}
+          {% if page.last_modified_at and page.last_modified_at != page.date %}
+            <span class="post-hero-fact post-date">
+              <i class="fas fa-rotate fa-fw" aria-hidden="true"></i>
+              {{ site.data.locales[lang].post.updated }}
+              {% include datetime.html date=page.last_modified_at tooltip=true lang=lang show_time=true %}
+            </span>
+          {% endif %}
         </div>
+
+        {% if page.tags.size > 0 %}
+          <div class="post-hero-tags" aria-label="{{ site.data.locales[lang].tabs.tags }}">
+            {% for tag in page.tags %}
+              <a href="{{ site.baseurl }}/tags/{{ tag | slugify | url_encode }}/">{{ tag }}</a>
+            {% endfor %}
+          </div>
+        {% endif %}
       </div>
     </div>
   </header>

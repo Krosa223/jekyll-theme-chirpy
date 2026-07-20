@@ -34,4 +34,8 @@ Thumbs.db
 # Local source images
 /assets/post_image/A_原图/
 /assets/img/原图/
+
+# Python caches used by local publishing tools
+__pycache__/
+*.py[cod]
 /assets/img/原图/
