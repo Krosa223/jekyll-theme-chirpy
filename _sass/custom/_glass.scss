@@ -416,6 +416,51 @@ main > article:not([data-toc]) > .content,
   text-shadow: none;
 }
 
+#main-wrapper:has(.post-article) #related-posts {
+  --heading-color: var(--glass-heading-color);
+  --text-color: var(--glass-text-color);
+  --text-muted-color: var(--glass-muted-color);
+  --bs-secondary-color: var(--glass-muted-color);
+
+  width: 100%;
+  max-width: 47.5rem;
+  margin-right: auto;
+  margin-left: auto;
+  color: var(--glass-text-color);
+  text-shadow: none;
+}
+
+#main-wrapper:has(.post-article) #related-posts > h3 {
+  color: var(--glass-chrome-color) !important;
+  font-family: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-shadow: var(--glass-chrome-shadow);
+  opacity: 1;
+}
+
+#main-wrapper:has(.post-article) #related-posts .post-preview {
+  color: var(--glass-text-color) !important;
+}
+
+#main-wrapper:has(.post-article) #related-posts .post-preview h4 {
+  color: var(--glass-heading-color) !important;
+  font-family: inherit;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+#main-wrapper:has(.post-article) #related-posts .post-preview time,
+#main-wrapper:has(.post-article) #related-posts .post-preview .text-muted,
+#main-wrapper:has(.post-article) #related-posts .post-preview p {
+  color: var(--glass-muted-color) !important;
+  font-family: inherit;
+  font-weight: 500;
+  text-shadow: none;
+  opacity: 1;
+}
+
 #main-wrapper:has(.post-article) #tail-wrapper > .post-navigation {
   width: 100%;
   max-width: 47.5rem;

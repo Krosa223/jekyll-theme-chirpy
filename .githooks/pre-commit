@@ -5,6 +5,7 @@ set -eu
 repo_root="$(git rev-parse --show-toplevel)"
 compressor="$repo_root/assets/post_image/_image_compressor.py"
 post_preparer="$repo_root/tools/prepare_posts.py"
+codex_python="$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe"
 
 echo "Preparing article images and publish metadata..."
 
@@ -14,6 +15,9 @@ if command -v py >/dev/null 2>&1 && py -3 -c "from PIL import Image" >/dev/null 
 elif command -v python >/dev/null 2>&1 && python -c "from PIL import Image" >/dev/null 2>&1; then
   python "$compressor"
   python "$post_preparer"
+elif [ -x "$codex_python" ] && "$codex_python" -c "from PIL import Image" >/dev/null 2>&1; then
+  "$codex_python" "$compressor"
+  "$codex_python" "$post_preparer"
 else
   echo "Image compression stopped: Python with Pillow was not found."
   echo "Install it with: python -m pip install Pillow"
