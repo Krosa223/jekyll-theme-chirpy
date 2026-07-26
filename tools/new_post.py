@@ -19,6 +19,79 @@ COMPRESSOR = IMAGES_DIR / "_image_compressor.py"
 BLOG_TIMEZONE = timezone(timedelta(hours=8))
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".jfif", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 ATTACHMENT_EXTENSIONS = {".pdf", ".doc", ".docx"}
+CONTENT_TEMPLATE_OPTIONS = (
+    (
+        "headings",
+        "章节标题",
+        (
+            "## 章节标题",
+            "",
+            "在这里填写本节内容。",
+            "",
+            "### 小节标题",
+            "",
+            "在这里填写小节内容。",
+            "",
+            "#### 补充说明",
+            "",
+            "在这里填写补充内容。",
+        ),
+    ),
+    (
+        "code",
+        "代码块",
+        (
+            "## 代码示例",
+            "",
+            "```text",
+            "在这里粘贴代码，并把 text 改成实际语言，例如 python、html 或 powershell。",
+            "```",
+        ),
+    ),
+    (
+        "table",
+        "表格",
+        (
+            "## 数据表格",
+            "",
+            "| 项目 | 内容 | 备注 |",
+            "| --- | --- | --- |",
+            "| 示例一 | 在这里填写 | 在这里填写 |",
+            "| 示例二 | 在这里填写 | 在这里填写 |",
+        ),
+    ),
+    (
+        "steps",
+        "操作步骤",
+        (
+            "## 操作步骤",
+            "",
+            "1. 第一步",
+            "2. 第二步",
+            "3. 第三步",
+        ),
+    ),
+    (
+        "prompt",
+        "提示框",
+        (
+            "> 在这里填写需要特别提醒的内容。",
+            "{: .prompt-tip }",
+        ),
+    ),
+    (
+        "quote",
+        "引用",
+        (
+            "> 在这里填写引用内容。",
+            ">",
+            "> 这里可以填写来源或补充说明。",
+        ),
+    ),
+)
+CONTENT_TEMPLATE_MAP = {
+    key: lines for key, _label, lines in CONTENT_TEMPLATE_OPTIONS
+}
 
 
 def split_values(value: str) -> list[str]:
@@ -37,6 +110,24 @@ def safe_component(value: str) -> str:
 
 def yaml_list(values: list[str]) -> str:
     return json.dumps(values, ensure_ascii=False)
+
+
+def content_template_lines(selected: list[str]) -> list[str]:
+    selected_set = set(selected)
+    unknown = selected_set.difference(CONTENT_TEMPLATE_MAP)
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise ValueError(f"未知的正文模板：{names}")
+
+    lines: list[str] = []
+    for key, _label, template in CONTENT_TEMPLATE_OPTIONS:
+        if key not in selected_set:
+            continue
+        if lines:
+            lines.append("")
+        lines.extend(template)
+        lines.append("")
+    return lines
 
 
 def existing_taxonomy(field: str) -> list[str]:
@@ -160,6 +251,7 @@ def build_post(
     cover: Path | None = None,
     body_images: tuple[Path, ...] = (),
     attachments: tuple[Path, ...] = (),
+    content_templates: list[str] | None = None,
 ) -> tuple[Path, Path, Path | None, str]:
     title = title.strip()
     if not title:
@@ -232,6 +324,8 @@ def build_post(
         ]
     )
 
+    lines.extend(content_template_lines(content_templates or []))
+
     for index, image in enumerate(body_files, start=1):
         lines.extend([f"![图片 {index}]({image.name})", ""])
 
@@ -287,6 +381,10 @@ def launch_gui() -> int:
     images_var = tk.StringVar(value="未选择")
     attachments_var = tk.StringVar(value="未选择")
     open_var = tk.BooleanVar(value=True)
+    template_vars = {
+        key: tk.BooleanVar(value=False)
+        for key, _label, _template in CONTENT_TEMPLATE_OPTIONS
+    }
     cover_path: Path | None = None
     body_paths: tuple[Path, ...] = ()
     attachment_paths: tuple[Path, ...] = ()
@@ -406,11 +504,28 @@ def launch_gui() -> int:
     )
     ttk.Label(panel, textvariable=attachments_var).grid(row=7, column=2, sticky="w", padx=(10, 0))
 
+    template_frame = ttk.LabelFrame(panel, text="正文模板（可多选）", padding=(10, 7))
+    template_frame.grid(
+        row=8, column=0, columnspan=3, sticky="ew", pady=(12, 4)
+    )
+    for index, (key, label, _template) in enumerate(CONTENT_TEMPLATE_OPTIONS):
+        ttk.Checkbutton(
+            template_frame,
+            text=label,
+            variable=template_vars[key],
+        ).grid(
+            row=index // 3,
+            column=index % 3,
+            sticky="w",
+            padx=(0, 22),
+            pady=3,
+        )
+
     ttk.Checkbutton(
         panel,
         text="创建后打开文章和资源文件夹",
         variable=open_var,
-    ).grid(row=8, column=0, columnspan=3, sticky="w", pady=(12, 8))
+    ).grid(row=9, column=0, columnspan=3, sticky="w", pady=(10, 8))
 
     def close_window() -> None:
         clipboard_temp.cleanup()
@@ -425,6 +540,9 @@ def launch_gui() -> int:
                 cover=cover_path,
                 body_images=body_paths,
                 attachments=attachment_paths,
+                content_templates=[
+                    key for key, variable in template_vars.items() if variable.get()
+                ],
             )
         except (OSError, ValueError) as error:
             messagebox.showerror("无法创建文章", str(error), parent=root)
@@ -443,7 +561,7 @@ def launch_gui() -> int:
         close_window()
 
     controls = ttk.Frame(panel)
-    controls.grid(row=9, column=0, columnspan=3, sticky="e", pady=(12, 0))
+    controls.grid(row=10, column=0, columnspan=3, sticky="e", pady=(12, 0))
     ttk.Button(controls, text="取消", command=close_window).grid(row=0, column=0, padx=(0, 8))
     ttk.Button(controls, text="创建文章", command=create_post).grid(row=0, column=1)
 
@@ -459,6 +577,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--title")
     parser.add_argument("--categories", default="随笔")
     parser.add_argument("--tags", default="")
+    parser.add_argument(
+        "--templates",
+        default="",
+        help="Comma-separated templates: headings, code, table, steps, prompt, quote",
+    )
     parser.add_argument("--no-open", action="store_true")
     return parser.parse_args()
 
@@ -472,6 +595,7 @@ def main() -> int:
         title=args.title,
         categories=split_values(args.categories),
         tags=split_values(args.tags),
+        content_templates=split_values(args.templates),
     )
     print(f"文章：{post_path}")
     print(f"图片：{image_dir}")

@@ -8,6 +8,8 @@
   >
   <script>
     (function () {
+      var wallpaperStorageKey = 'krosa-wallpaper';
+      var modeStorageKey = 'krosa-wallpaper-mode';
       var wallpapers = [
         '1k5kdg',
         '7pje5o',
@@ -19,40 +21,71 @@
         '139576849',
         '132910923'
       ];
-      var selected = '7pje5o';
-      var hasStoredSelection = false;
+      var schedule = [
+        { start: 5, wallpaper: '134825297' },
+        { start: 10, wallpaper: '1k5kdg' },
+        { start: 16, wallpaper: '7pje5o' },
+        { start: 20, wallpaper: '133608163' }
+      ];
 
-      try {
-        var stored = window.localStorage.getItem('krosa-wallpaper');
-        if (wallpapers.indexOf(stored) !== -1) {
-          selected = stored;
-          hasStoredSelection = true;
-        }
-      } catch {
-        // Fall through to the preference cookie.
-      }
-
-      if (!hasStoredSelection) {
-        var prefix = 'krosa-wallpaper=';
+      function readCookie(key) {
+        var prefix = key + '=';
         var cookies = document.cookie.split(';');
 
         for (var i = 0; i < cookies.length; i += 1) {
           var cookie = cookies[i].trim();
           if (cookie.indexOf(prefix) !== 0) continue;
 
-          var cookieValue = cookie.slice(prefix.length);
-
           try {
-            cookieValue = decodeURIComponent(cookieValue);
+            return decodeURIComponent(cookie.slice(prefix.length));
           } catch {
-            break;
+            return null;
           }
-
-          if (wallpapers.indexOf(cookieValue) !== -1) selected = cookieValue;
-          break;
         }
+
+        return null;
       }
 
+      function readPreference(key) {
+        try {
+          var stored = window.localStorage.getItem(key);
+          if (stored) return stored;
+        } catch {
+          // Fall through to the preference cookie.
+        }
+
+        return readCookie(key);
+      }
+
+      function wallpaperForCurrentTime() {
+        var hour = new Date().getHours();
+        var selected = schedule[schedule.length - 1].wallpaper;
+
+        for (var i = 0; i < schedule.length; i += 1) {
+          if (hour < schedule[i].start) break;
+          selected = schedule[i].wallpaper;
+        }
+
+        return selected;
+      }
+
+      var storedWallpaper = readPreference(wallpaperStorageKey);
+      var storedMode = readPreference(modeStorageKey);
+      var hasManualWallpaper = wallpapers.indexOf(storedWallpaper) !== -1;
+      var mode =
+        storedMode === 'auto' || storedMode === 'manual'
+          ? storedMode
+          : hasManualWallpaper
+            ? 'manual'
+            : 'auto';
+      var selected =
+        mode === 'auto'
+          ? wallpaperForCurrentTime()
+          : hasManualWallpaper
+            ? storedWallpaper
+            : '7pje5o';
+
+      document.documentElement.setAttribute('data-wallpaper-mode', mode);
       document.documentElement.setAttribute('data-wallpaper', selected);
     })();
   </script>

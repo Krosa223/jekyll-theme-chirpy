@@ -228,6 +228,33 @@ body {
   display: none;
 }
 
+#wallpaper-auto {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.55rem;
+  color: var(--glass-chrome-color);
+  border: 1px solid var(--glass-card-border);
+  border-radius: 0.35rem;
+  background: rgb(255 255 255 / 28%);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+#wallpaper-auto:hover {
+  background: rgb(255 255 255 / 42%);
+}
+
+#wallpaper-auto[aria-pressed='true'] {
+  color: var(--glass-chrome-color);
+  border-color: rgb(255 255 255 / 78%);
+  background: rgb(255 255 255 / 54%);
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 24%);
+}
+
 .wallpaper-option {
   position: relative;
   width: 3.7rem;
