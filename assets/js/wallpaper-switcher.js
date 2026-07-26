@@ -185,8 +185,7 @@
 
     function syncStoredPreference() {
       var storedWallpaper = readStoredWallpaper();
-      var storedMode =
-        readStoredMode() || (storedWallpaper ? 'manual' : defaultMode);
+      var storedMode = readStoredMode() || defaultMode;
 
       applyMode(storedMode, false);
       if (storedMode === 'manual') {

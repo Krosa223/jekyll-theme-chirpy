@@ -75,9 +75,7 @@
       var mode =
         storedMode === 'auto' || storedMode === 'manual'
           ? storedMode
-          : hasManualWallpaper
-            ? 'manual'
-            : 'auto';
+          : 'auto';
       var selected =
         mode === 'auto'
           ? wallpaperForCurrentTime()
