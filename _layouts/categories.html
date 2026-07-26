@@ -49,8 +49,7 @@ layout: page
     backdrop-filter: blur(13px) saturate(138%);
   }
 
-  .category-folder-tab.category-folder-tab--enhanced::before,
-  .category-folder-tab.category-folder-tab--enhanced::after {
+  .category-folder-tab.category-folder-tab--enhanced::before {
     position: absolute;
     z-index: 0;
     pointer-events: none;
@@ -66,21 +65,6 @@ layout: page
         rgba(255, 255, 255, 0.08) 22%,
         transparent 45%
       );
-  }
-
-  .category-folder-tab.category-folder-tab--enhanced::after {
-    top: -45%;
-    left: 18%;
-    width: 24%;
-    height: 180%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.18),
-      transparent
-    );
-    transform: rotate(17deg);
-    opacity: 0.72;
   }
 
   .category-folder-tab.category-folder-tab--enhanced:link,
