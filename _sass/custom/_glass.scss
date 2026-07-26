@@ -537,7 +537,7 @@ main > article > .content.glass-index-content {
 }
 
 .post-preview::before {
-  background-color: rgb(255 255 255 / 24%);
+  background: transparent;
 }
 
 .category-folder-sheet {
@@ -877,8 +877,28 @@ main > article:not([data-toc]) > .content,
 }
 
 #post-list .post-preview-media {
+  position: relative;
   min-height: 11rem;
   overflow: hidden;
+  isolation: isolate;
+}
+
+#post-list .post-preview-media::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent 20%,
+    rgb(255 255 255 / 8%) 38%,
+    rgb(255 255 255 / 34%) 50%,
+    rgb(255 255 255 / 8%) 62%,
+    transparent 80%
+  );
+  opacity: 0;
+  transform: translateX(-105%);
 }
 
 #post-list .post-preview-media .preview-img,
@@ -898,6 +918,28 @@ main > article:not([data-toc]) > .content,
 
 #post-list .post-preview:hover .post-preview-media img {
   transform: scale(1.025);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  #post-list .post-preview:hover .post-preview-media::after {
+    animation: post-preview-image-sheen 680ms ease-out 1;
+  }
+}
+
+@keyframes post-preview-image-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-105%);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(105%);
+  }
 }
 
 #post-list .post-preview-copy {
