@@ -682,6 +682,15 @@ main > article:not([data-toc]) > .content,
   text-shadow: none;
 }
 
+#main-wrapper main > article:not(.post-article) > .dynamic-title,
+#main-wrapper .category-page-heading > .dynamic-title {
+  color: var(--glass-chrome-color) !important;
+  font-family: inherit;
+  font-weight: 700;
+  text-shadow: var(--glass-chrome-shadow);
+  opacity: 1;
+}
+
 .post-article > .post-hero {
   position: relative;
   isolation: isolate;
