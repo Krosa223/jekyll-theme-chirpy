@@ -14,6 +14,7 @@ const CLOSING = 'closing';
 export class TocMobile {
   static #invisible = true;
   static #barHeight = 16 * 3; // 3rem
+  static observer = null;
 
   static options = {
     tocSelector: '#toc-popup-content',
@@ -27,7 +28,7 @@ export class TocMobile {
   };
 
   static initBar() {
-    const observer = new IntersectionObserver(
+    this.observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           $tocBar.classList.toggle('invisible', entry.isIntersecting);
@@ -36,7 +37,7 @@ export class TocMobile {
       { rootMargin: `-${this.#barHeight}px 0px 0px 0px` }
     );
 
-    observer.observe($soloTrigger);
+    this.observer.observe($soloTrigger);
     this.#invisible = false;
   }
 
@@ -122,5 +123,24 @@ export class TocMobile {
     tocbot.init(this.options);
     this.listenAnchors();
     this.initComponents();
+  }
+
+  static destroy() {
+    this.observer?.disconnect();
+    this.observer = null;
+
+    [...$triggers].forEach((trigger) => {
+      trigger.onclick = null;
+    });
+
+    if ($popup) {
+      $popup.onclick = null;
+      $popup.oncancel = null;
+      if ($popup.open) $popup.close();
+    }
+
+    if ($btnClose) $btnClose.onclick = null;
+    this.lockScroll(false);
+    this.#invisible = true;
   }
 }

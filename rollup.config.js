@@ -74,6 +74,7 @@ function build(
 cleanup();
 
 export default [
+  build('navigation'),
   build('commons'),
   build('home'),
   build('categories'),

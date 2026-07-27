@@ -169,10 +169,37 @@ layout: page
 </div>
 
 
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
+<script data-swup-reload-script>
+  (function initCategoryFolders() {
     var container = document.querySelector('.category-folders');
     if (!container) return;
+
+    var cleanupController = new AbortController();
+    var cleanupSignal = cleanupController.signal;
+    var resizeObserver = null;
+    var layoutFrame = null;
+    var states = null;
+
+    window.krosaPageCleanup = function () {
+      cleanupController.abort();
+
+      if (layoutFrame !== null) {
+        window.cancelAnimationFrame(layoutFrame);
+      }
+
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+
+      if (states) {
+        container.querySelectorAll('.category-folder').forEach(function (folder) {
+          var state = states.get(folder);
+          if (state && state.resetTimer !== null) {
+            window.clearTimeout(state.resetTimer);
+          }
+        });
+      }
+    };
 
     var menuToggle = document.getElementById('category-menu-toggle');
     var quickMenu = document.getElementById('category-quick-menu');
@@ -188,18 +215,18 @@ layout: page
     if (menuToggle && quickMenu && quickPicker) {
       menuToggle.addEventListener('click', function () {
         setMenuOpen(menuToggle.getAttribute('aria-expanded') !== 'true');
-      });
+      }, { signal: cleanupSignal });
 
       document.addEventListener('click', function (event) {
         if (!quickPicker.contains(event.target)) setMenuOpen(false);
-      });
+      }, { signal: cleanupSignal });
 
       document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape' && menuToggle.getAttribute('aria-expanded') === 'true') {
           setMenuOpen(false);
           menuToggle.focus();
         }
-      });
+      }, { signal: cleanupSignal });
     }
 
     var folders = Array.prototype.slice.call(
@@ -218,8 +245,7 @@ layout: page
      */
     var extraTabHeight = 26;
     var topLayer = 10000 + folders.length;
-    var states = new WeakMap();
-    var layoutFrame = null;
+    states = new WeakMap();
 
     tabs.forEach(function (tab) {
       var style = window.getComputedStyle(tab);
@@ -369,31 +395,35 @@ layout: page
     folders.forEach(function (folder) {
       folder.addEventListener('pointerenter', function () {
         raiseFolder(folder);
-      });
+      }, { signal: cleanupSignal });
 
       folder.addEventListener('pointerleave', function () {
         if (!folder.contains(document.activeElement)) {
           lowerAfterMotion(folder);
         }
-      });
+      }, { signal: cleanupSignal });
 
       folder.addEventListener('focusin', function () {
         raiseFolder(folder);
-      });
+      }, { signal: cleanupSignal });
 
       folder.addEventListener('focusout', function (event) {
         if (!folder.contains(event.relatedTarget) && !folder.matches(':hover')) {
           lowerAfterMotion(folder);
         }
-      });
+      }, { signal: cleanupSignal });
     });
 
     function layoutTabs() {
+      if (cleanupSignal.aborted) return;
+
       if (layoutFrame !== null) {
         window.cancelAnimationFrame(layoutFrame);
       }
 
       layoutFrame = window.requestAnimationFrame(function () {
+        if (cleanupSignal.aborted) return;
+
         layoutFrame = null;
 
         /* 先取消旧的横向位移，取得主题原本的页签位置。 */
@@ -454,14 +484,19 @@ layout: page
     layoutTabs();
 
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(layoutTabs);
+      document.fonts.ready.then(function () {
+        if (!cleanupSignal.aborted) layoutTabs();
+      });
     }
 
     if ('ResizeObserver' in window) {
-      var observer = new ResizeObserver(layoutTabs);
-      observer.observe(container);
+      resizeObserver = new ResizeObserver(layoutTabs);
+      resizeObserver.observe(container);
     } else {
-      window.addEventListener('resize', layoutTabs, { passive: true });
+      window.addEventListener('resize', layoutTabs, {
+        passive: true,
+        signal: cleanupSignal
+      });
     }
-  });
+  })();
 </script>

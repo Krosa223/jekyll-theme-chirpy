@@ -31,6 +31,14 @@ function init() {
   $tocWrapper.classList.remove('invisible');
 
   desktopMode.onchange = refresh;
+
+  if (typeof window.krosaRegisterPageCleanup === 'function') {
+    window.krosaRegisterPageCleanup(() => {
+      desktopMode.onchange = null;
+      mobile.destroy();
+      tocbot.destroy();
+    });
+  }
 }
 
 export { init as initToc };

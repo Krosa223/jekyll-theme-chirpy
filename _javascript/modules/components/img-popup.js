@@ -37,11 +37,11 @@ export function imgPopup() {
   }
 
   let current = GLightbox({ selector: `${selector}` });
+  let reverse = null;
+  let themeListener = null;
 
   if (hasDualImages && Theme.isToggleable) {
-    let reverse = null;
-
-    window.addEventListener('message', (event) => {
+    themeListener = (event) => {
       if (
         event.source === window &&
         event.data &&
@@ -49,6 +49,19 @@ export function imgPopup() {
       ) {
         [current, reverse] = swapImages(current, reverse);
       }
+    };
+
+    window.addEventListener('message', themeListener);
+  }
+
+  if (typeof window.krosaRegisterPageCleanup === 'function') {
+    window.krosaRegisterPageCleanup(() => {
+      if (themeListener) {
+        window.removeEventListener('message', themeListener);
+      }
+
+      current?.destroy();
+      reverse?.destroy();
     });
   }
 }

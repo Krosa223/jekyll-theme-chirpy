@@ -21,7 +21,11 @@ layout: compress
     {% include sidebar.html lang=lang %}
 
     <div id="main-wrapper" class="d-flex justify-content-center">
-      <div class="container d-flex flex-column px-xxl-5">
+      <div
+        id="swup"
+        class="container d-flex flex-column px-xxl-5"
+        data-swup-transition
+      >
         {% include topbar.html lang=lang %}
 
         <div class="row flex-grow-1">

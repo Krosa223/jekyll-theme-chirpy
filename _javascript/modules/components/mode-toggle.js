@@ -14,9 +14,15 @@ const activeMode = Theme.isSystemTheme
   : Theme.resolvedTheme;
 
 export function modeWatcher() {
-  if (!Theme.isToggleable) {
+  if (
+    !Theme.isToggleable ||
+    !dropdown ||
+    dropdown.dataset.modeWatcherReady === 'true'
+  ) {
     return;
   }
+
+  dropdown.dataset.modeWatcherReady = 'true';
 
   dropdown.querySelectorAll('.dropdown-item').forEach((option) => {
     const mode = option.dataset.themeMode;
@@ -39,7 +45,7 @@ export function modeWatcher() {
       return;
     }
 
-    lastActive.classList.remove(ACTIVE_CLASS);
+    lastActive?.classList.remove(ACTIVE_CLASS);
     current.classList.add(ACTIVE_CLASS);
     Theme.update(current.dataset.themeMode);
   });

@@ -62,12 +62,17 @@
 
 {% capture script %}/assets/js/dist/{{ js }}.min.js{% endcapture %}
 
-<script defer src="{{ script | relative_url }}"></script>
+<script defer data-swup-reload-script src="{{ script | relative_url }}"></script>
 
 {% if page.math %}
   <!-- MathJax -->
-  <script src="{{ '/assets/js/data/mathjax.js' | relative_url }}"></script>
-  <script id="MathJax-script" async src="{{ site.data.origin[type].mathjax.js | relative_url }}"></script>
+  <script data-swup-reload-script src="{{ '/assets/js/data/mathjax.js' | relative_url }}"></script>
+  <script
+    id="MathJax-script"
+    async
+    data-swup-reload-script
+    src="{{ site.data.origin[type].mathjax.js | relative_url }}"
+  ></script>
 {% endif %}
 
 <!-- Pageviews -->

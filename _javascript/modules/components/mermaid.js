@@ -60,5 +60,11 @@ export function loadMermaid() {
 
   if (Theme.isToggleable) {
     window.addEventListener('message', refreshTheme);
+
+    if (typeof window.krosaRegisterPageCleanup === 'function') {
+      window.krosaRegisterPageCleanup(() => {
+        window.removeEventListener('message', refreshTheme);
+      });
+    }
   }
 }

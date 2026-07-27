@@ -5,7 +5,7 @@ export function loadTooltip() {
     '[data-bs-toggle="tooltip"]'
   );
 
-  [...tooltipTriggerList].map(
-    (tooltipTriggerEl) => new Tooltip(tooltipTriggerEl)
+  [...tooltipTriggerList].map((tooltipTriggerEl) =>
+    Tooltip.getOrCreateInstance(tooltipTriggerEl)
   );
 }

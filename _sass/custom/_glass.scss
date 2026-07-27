@@ -1096,75 +1096,29 @@ main > article:not([data-toc]) > .content,
   }
 }
 
-@view-transition {
-  navigation: auto;
+html.is-changing #swup {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
 }
 
-#sidebar {
-  view-transition-name: blog-sidebar;
+html.is-animating #swup {
+  opacity: 0;
 }
 
-#main-wrapper > .container {
-  view-transition-name: blog-page-shell;
+html.is-leaving.is-animating #swup {
+  transform: translateY(-0.4rem);
 }
 
-::view-transition-old(root) {
-  animation: 180ms ease-out both blog-background-exit;
-}
-
-::view-transition-new(root) {
-  animation: 260ms ease-out both blog-background-enter;
-  mix-blend-mode: normal;
-}
-
-::view-transition-old(blog-sidebar),
-::view-transition-new(blog-sidebar) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-::view-transition-old(blog-page-shell) {
-  animation: 220ms cubic-bezier(0.4, 0, 1, 1) both blog-page-exit;
-}
-
-::view-transition-new(blog-page-shell) {
-  animation: 360ms cubic-bezier(0.22, 1, 0.36, 1) both blog-page-enter;
-  mix-blend-mode: normal;
-}
-
-@keyframes blog-background-exit {
-  to {
-    opacity: 0.82;
-  }
-}
-
-@keyframes blog-background-enter {
-  from {
-    opacity: 0.82;
-  }
-}
-
-@keyframes blog-page-exit {
-  to {
-    opacity: 0;
-    transform: translateY(-0.75rem);
-  }
-}
-
-@keyframes blog-page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(1.125rem);
-  }
+html.is-rendering.is-animating #swup {
+  transform: translateY(0.4rem);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(root),
-  ::view-transition-new(root),
-  ::view-transition-old(blog-sidebar),
-  ::view-transition-new(blog-sidebar),
-  ::view-transition-old(blog-page-shell),
-  ::view-transition-new(blog-page-shell) {
-    animation-duration: 0.01ms;
+  html.is-changing #swup {
+    transition-duration: 0.01ms;
   }
 }

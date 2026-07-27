@@ -201,6 +201,11 @@
     defer
     src="{{ '/assets/js/wallpaper-switcher.js' | relative_url }}?v={{ local_asset_version }}"
   ></script>
+  <script
+    defer
+    data-swup-ignore-script
+    src="{{ '/assets/js/dist/navigation.min.js' | relative_url }}?v={{ local_asset_version }}"
+  ></script>
 
   {% include js-selector.html lang=lang %}
 

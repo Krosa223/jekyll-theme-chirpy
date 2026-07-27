@@ -27,7 +27,12 @@
   },
   "dependencies": {
     "@popperjs/core": "^2.11.8",
-    "bootstrap": "^5.3.8"
+    "@swup/a11y-plugin": "^5.2.1",
+    "@swup/head-plugin": "^2.3.1",
+    "@swup/preload-plugin": "^3.2.11",
+    "@swup/scripts-plugin": "^2.1.0",
+    "bootstrap": "^5.3.8",
+    "swup": "^4.9.2"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",

@@ -5,6 +5,12 @@
 export function back2top() {
   const btn = document.getElementById('back-to-top');
 
+  if (!btn || btn.dataset.backToTopReady === 'true') {
+    return;
+  }
+
+  btn.dataset.backToTopReady = 'true';
+
   window.addEventListener('scroll', () => {
     if (window.scrollY > 50) {
       btn.classList.add('show');
