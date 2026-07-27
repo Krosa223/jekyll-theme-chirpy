@@ -1095,3 +1095,76 @@ main > article:not([data-toc]) > .content,
     }
   }
 }
+
+@view-transition {
+  navigation: auto;
+}
+
+#sidebar {
+  view-transition-name: blog-sidebar;
+}
+
+#main-wrapper > .container {
+  view-transition-name: blog-page-shell;
+}
+
+::view-transition-old(root) {
+  animation: 180ms ease-out both blog-background-exit;
+}
+
+::view-transition-new(root) {
+  animation: 260ms ease-out both blog-background-enter;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(blog-sidebar),
+::view-transition-new(blog-sidebar) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(blog-page-shell) {
+  animation: 220ms cubic-bezier(0.4, 0, 1, 1) both blog-page-exit;
+}
+
+::view-transition-new(blog-page-shell) {
+  animation: 360ms cubic-bezier(0.22, 1, 0.36, 1) both blog-page-enter;
+  mix-blend-mode: normal;
+}
+
+@keyframes blog-background-exit {
+  to {
+    opacity: 0.82;
+  }
+}
+
+@keyframes blog-background-enter {
+  from {
+    opacity: 0.82;
+  }
+}
+
+@keyframes blog-page-exit {
+  to {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+}
+
+@keyframes blog-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(1.125rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root),
+  ::view-transition-old(blog-sidebar),
+  ::view-transition-new(blog-sidebar),
+  ::view-transition-old(blog-page-shell),
+  ::view-transition-new(blog-page-shell) {
+    animation-duration: 0.01ms;
+  }
+}
