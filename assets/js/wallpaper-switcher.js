@@ -18,9 +18,10 @@
   ];
   var schedule = [
     { start: 5, wallpaper: '134825297' },
-    { start: 10, wallpaper: '1k5kdg' },
-    { start: 16, wallpaper: '7pje5o' },
-    { start: 20, wallpaper: '133608163' }
+    { start: 11, wallpaper: '132910923' },
+    { start: 17, wallpaper: '139576849' },
+    { start: 20, wallpaper: '7pje5o' },
+    { start: 24, wallpaper: '133608163' }
   ];
   var root = document.documentElement;
   var refreshTimer = null;
