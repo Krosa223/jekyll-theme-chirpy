@@ -1100,8 +1100,8 @@ html.is-changing #swup {
   opacity: 1;
   transform: translateY(0);
   transition:
-    opacity 180ms ease,
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 110ms ease,
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
 }
 
@@ -1110,11 +1110,11 @@ html.is-animating #swup {
 }
 
 html.is-leaving.is-animating #swup {
-  transform: translateY(-0.4rem);
+  transform: translateY(-0.15rem);
 }
 
 html.is-rendering.is-animating #swup {
-  transform: translateY(0.4rem);
+  transform: translateY(0.15rem);
 }
 
 @media (prefers-reduced-motion: reduce) {

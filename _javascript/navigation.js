@@ -72,6 +72,50 @@ function closePersistentOverlays() {
   document.getElementById('mask')?.classList.add('d-none');
 }
 
+function getMissingPageDependencies() {
+  const checks = [
+    {
+      needed: () => document.getElementById('search-input'),
+      ready: () => typeof window.SimpleJekyllSearch === 'function'
+    },
+    {
+      needed: () => document.querySelector('[data-ts], time[datetime]'),
+      ready: () =>
+        typeof window.dayjs === 'function' &&
+        typeof window.dayjs_plugin_localizedFormat === 'function'
+    },
+    {
+      needed: () => document.querySelector('.popup'),
+      ready: () => typeof window.GLightbox === 'function'
+    },
+    {
+      needed: () =>
+        document.getElementById('copy-link') ||
+        document.querySelector('.code-header > button'),
+      ready: () => typeof window.ClipboardJS === 'function'
+    },
+    {
+      needed: () =>
+        document.querySelector('main > article[data-toc="true"]'),
+      ready: () => typeof window.tocbot?.init === 'function'
+    },
+    {
+      needed: () => document.querySelector('.language-mermaid'),
+      ready: () => typeof window.mermaid?.initialize === 'function'
+    }
+  ];
+
+  return checks.filter(({ needed, ready }) => needed() && !ready());
+}
+
+async function waitForPageDependencies() {
+  const timeoutAt = performance.now() + 1500;
+
+  while (getMissingPageDependencies().length && performance.now() < timeoutAt) {
+    await new Promise((resolve) => window.setTimeout(resolve, 16));
+  }
+}
+
 const swup = new Swup({
   containers: ['#swup'],
   animationSelector: '[data-swup-transition]',
@@ -81,7 +125,15 @@ const swup = new Swup({
       awaitAssets: true,
       attributes: ['lang', 'dir']
     }),
-    new SwupPreloadPlugin(),
+    new SwupPreloadPlugin({
+      throttle: 4,
+      preloadVisibleLinks: {
+        enabled: true,
+        threshold: 0.15,
+        delay: 650,
+        containers: ['#sidebar', '#swup']
+      }
+    }),
     new SwupA11yPlugin(),
     new SwupScriptsPlugin({
       head: true,
@@ -89,6 +141,10 @@ const swup = new Swup({
       optin: true
     })
   ]
+});
+
+swup.hooks.on('content:replace', waitForPageDependencies, {
+  priority: -100
 });
 
 swup.hooks.before('content:replace', () => {
