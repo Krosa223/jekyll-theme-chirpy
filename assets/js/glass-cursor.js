@@ -37,15 +37,14 @@
   var targetY = 0;
   var currentX = 0;
   var currentY = 0;
-  var normalX = 0;
-  var normalY = 1;
-  var normalReady = false;
+  var headNormalX = 0;
+  var headNormalY = 1;
+  var headNormalReady = false;
   var lastSampleX = Number.NaN;
   var lastSampleY = Number.NaN;
   var lastFrameTime = 0;
   var animationFrame = 0;
-  var leftPoints = [];
-  var rightPoints = [];
+  var trailPoints = [];
 
   var layer = document.createElement('div');
   layer.className = 'glass-cursor-effect';
@@ -93,8 +92,8 @@
   }
 
   function clearTrail() {
-    leftPoints = [];
-    rightPoints = [];
+    trailPoints = [];
+    headNormalReady = false;
     lastSampleX = Number.NaN;
     lastSampleY = Number.NaN;
     leftPaths.concat(rightPaths).forEach(function (path) {
@@ -131,7 +130,6 @@
       clearTrail();
       currentX = targetX;
       currentY = targetY;
-      normalReady = false;
       positionDisc();
     }
 
@@ -139,7 +137,7 @@
     ensureAnimation();
   }
 
-  function buildPathSegment(points) {
+  function buildPath(points) {
     if (points.length < 2) return '';
 
     var first = points[0];
@@ -168,27 +166,6 @@
     return path;
   }
 
-  function buildPath(points) {
-    var path = '';
-    var segmentStart = 0;
-
-    for (var index = 1; index <= points.length; index += 1) {
-      if (index === points.length || points[index].breakBefore) {
-        var segmentPath = buildPathSegment(
-          points.slice(segmentStart, index)
-        );
-
-        if (segmentPath) {
-          path += (path ? ' ' : '') + segmentPath;
-        }
-
-        segmentStart = index;
-      }
-    }
-
-    return path;
-  }
-
   function updateGradient(gradient, points) {
     if (points.length < 2) return;
 
@@ -214,115 +191,149 @@
     updateGradient(gradient, points);
   }
 
+  function calculateNormal(points, index) {
+    var previous = points[Math.max(0, index - 1)];
+    var next = points[Math.min(points.length - 1, index + 1)];
+    var tangentX = next.x - previous.x;
+    var tangentY = next.y - previous.y;
+    var tangentLength = Math.hypot(tangentX, tangentY) || 1;
+
+    return {
+      x: -tangentY / tangentLength,
+      y: tangentX / tangentLength
+    };
+  }
+
+  function constrainNormal(normal, nextNormal, distance) {
+    if (normal.x * nextNormal.x + normal.y * nextNormal.y < 0) {
+      normal = { x: -normal.x, y: -normal.y };
+    }
+
+    var normalDot = Math.max(
+      -1,
+      Math.min(1, nextNormal.x * normal.x + nextNormal.y * normal.y)
+    );
+    var normalCross =
+      nextNormal.x * normal.y - nextNormal.y * normal.x;
+    var turn = Math.atan2(normalCross, normalDot);
+    var safeTurn = Math.asin(
+      Math.min(1, distance / (discRadius * 1.08))
+    );
+
+    turn = Math.max(-safeTurn, Math.min(safeTurn, turn));
+
+    var turnCos = Math.cos(turn);
+    var turnSin = Math.sin(turn);
+
+    return {
+      x: nextNormal.x * turnCos - nextNormal.y * turnSin,
+      y: nextNormal.x * turnSin + nextNormal.y * turnCos
+    };
+  }
+
+  function buildOffsetPoints(points) {
+    var count = points.length;
+    var normals = new Array(count);
+    var left = new Array(count);
+    var right = new Array(count);
+
+    if (count < 2) {
+      return { left: [], right: [] };
+    }
+
+    for (var index = 0; index < count; index += 1) {
+      normals[index] = calculateNormal(points, index);
+    }
+
+    var headNormal = normals[count - 1];
+
+    if (
+      headNormalReady &&
+      headNormal.x * headNormalX + headNormal.y * headNormalY < 0
+    ) {
+      headNormal = { x: -headNormal.x, y: -headNormal.y };
+    }
+
+    normals[count - 1] = headNormal;
+    headNormalX = headNormal.x;
+    headNormalY = headNormal.y;
+    headNormalReady = true;
+
+    for (var normalIndex = count - 2; normalIndex >= 0; normalIndex -= 1) {
+      var point = points[normalIndex];
+      var nextPoint = points[normalIndex + 1];
+      var distance = Math.hypot(
+        nextPoint.x - point.x,
+        nextPoint.y - point.y
+      );
+
+      normals[normalIndex] = constrainNormal(
+        normals[normalIndex],
+        normals[normalIndex + 1],
+        distance
+      );
+    }
+
+    for (var pointIndex = 0; pointIndex < count; pointIndex += 1) {
+      var trailPoint = points[pointIndex];
+      var trailNormal = normals[pointIndex];
+
+      left[pointIndex] = {
+        x: trailPoint.x + trailNormal.x * discRadius,
+        y: trailPoint.y + trailNormal.y * discRadius
+      };
+      right[pointIndex] = {
+        x: trailPoint.x - trailNormal.x * discRadius,
+        y: trailPoint.y - trailNormal.y * discRadius
+      };
+    }
+
+    return { left: left, right: right };
+  }
+
   function updateTrailGeometry() {
-    updatePath(leftPaths, leftGradient, leftPoints);
-    updatePath(rightPaths, rightGradient, rightPoints);
+    var offsetPoints = buildOffsetPoints(trailPoints);
+
+    updatePath(leftPaths, leftGradient, offsetPoints.left);
+    updatePath(rightPaths, rightGradient, offsetPoints.right);
   }
 
   function trimTrail(time) {
-    while (leftPoints.length && time - leftPoints[0].time > trailLifetime) {
-      leftPoints.shift();
-      rightPoints.shift();
+    while (
+      trailPoints.length &&
+      time - trailPoints[0].time > trailLifetime
+    ) {
+      trailPoints.shift();
+    }
+
+    if (!trailPoints.length) {
+      headNormalReady = false;
     }
   }
 
-  function appendTrailPoint(time, breakBefore) {
-    var leftPoint = {
-      x: currentX + normalX * discRadius,
-      y: currentY + normalY * discRadius,
-      time: time,
-      breakBefore: breakBefore
-    };
-    var rightPoint = {
-      x: currentX - normalX * discRadius,
-      y: currentY - normalY * discRadius,
-      time: time,
-      breakBefore: breakBefore
+  function appendTrailPoint(time) {
+    var point = {
+      x: currentX,
+      y: currentY,
+      time: time
     };
     var sampleDistance = Math.hypot(
       currentX - lastSampleX,
       currentY - lastSampleY
     );
 
-    if (!breakBefore && leftPoints.length && sampleDistance < 1.4) {
-      leftPoint.breakBefore =
-        leftPoints[leftPoints.length - 1].breakBefore;
-      rightPoint.breakBefore =
-        rightPoints[rightPoints.length - 1].breakBefore;
-      leftPoints[leftPoints.length - 1] = leftPoint;
-      rightPoints[rightPoints.length - 1] = rightPoint;
+    if (trailPoints.length && sampleDistance < 1.4) {
+      trailPoints[trailPoints.length - 1] = point;
     } else {
-      leftPoints.push(leftPoint);
-      rightPoints.push(rightPoint);
+      trailPoints.push(point);
     }
 
-    while (leftPoints.length > maxTrailPoints) {
-      leftPoints.shift();
-      rightPoints.shift();
+    while (trailPoints.length > maxTrailPoints) {
+      trailPoints.shift();
     }
 
     lastSampleX = currentX;
     lastSampleY = currentY;
-  }
-
-  function updateNormal(moveX, moveY, speed) {
-    var nextNormalX = -moveY / speed;
-    var nextNormalY = moveX / speed;
-
-    if (!normalReady) {
-      normalX = nextNormalX;
-      normalY = nextNormalY;
-      normalReady = true;
-      return false;
-    }
-
-    if (nextNormalX * normalX + nextNormalY * normalY < 0) {
-      nextNormalX *= -1;
-      nextNormalY *= -1;
-    }
-
-    var normalFollow = Math.min(0.48, 0.2 + speed * 0.018);
-    var normalDot = Math.max(
-      -1,
-      Math.min(1, normalX * nextNormalX + normalY * nextNormalY)
-    );
-    var normalCross = normalX * nextNormalY - normalY * nextNormalX;
-    var targetTurn = Math.atan2(normalCross, normalDot);
-    var blendedNormalX =
-      normalX + (nextNormalX - normalX) * normalFollow;
-    var blendedNormalY =
-      normalY + (nextNormalY - normalY) * normalFollow;
-    var blendedLength =
-      Math.hypot(blendedNormalX, blendedNormalY) || 1;
-
-    blendedNormalX /= blendedLength;
-    blendedNormalY /= blendedLength;
-
-    var blendedDot = Math.max(
-      -1,
-      Math.min(
-        1,
-        normalX * blendedNormalX + normalY * blendedNormalY
-      )
-    );
-    var blendedCross =
-      normalX * blendedNormalY - normalY * blendedNormalX;
-    var blendedTurn = Math.abs(
-      Math.atan2(blendedCross, blendedDot)
-    );
-    var safeTurn = Math.asin(
-      Math.min(1, speed / (discRadius * 1.15))
-    );
-
-    if (blendedTurn > safeTurn) {
-      normalX = nextNormalX;
-      normalY = nextNormalY;
-      return Math.abs(targetTurn) > 0.001;
-    }
-
-    normalX = blendedNormalX;
-    normalY = blendedNormalY;
-    return false;
   }
 
   function render(time) {
@@ -333,7 +344,12 @@
     var previousY = currentY;
 
     if (activeSurface) {
-      var follow = 1 - Math.exp(-elapsed / 56);
+      var targetDistance = Math.hypot(
+        targetX - currentX,
+        targetY - currentY
+      );
+      var followTime = Math.max(30, 56 - targetDistance * 0.22);
+      var follow = 1 - Math.exp(-elapsed / followTime);
       currentX += (targetX - currentX) * follow;
       currentY += (targetY - currentY) * follow;
 
@@ -350,8 +366,7 @@
       var speed = Math.hypot(moveX, moveY);
 
       if (speed > 0.04) {
-        var breakTrail = updateNormal(moveX, moveY, speed);
-        appendTrailPoint(time, breakTrail);
+        appendTrailPoint(time);
       }
 
       positionDisc();
@@ -366,7 +381,7 @@
     );
     if (
       (activeSurface && distanceToTarget > 0.04) ||
-      leftPoints.length > 0
+      trailPoints.length > 0
     ) {
       animationFrame = window.requestAnimationFrame(render);
     } else {
