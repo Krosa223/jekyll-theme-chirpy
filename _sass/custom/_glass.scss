@@ -1096,39 +1096,66 @@ main > article:not([data-toc]) > .content,
   }
 }
 
-html.is-changing #swup {
+html.is-changing .swup-transition-region {
   opacity: 1;
   transform: translate3d(0, 0, 0);
   transition-property: opacity, transform;
-  transition-duration: 200ms, 240ms;
+  transition-duration: 280ms, 340ms;
   transition-timing-function:
-    cubic-bezier(0.2, 0.7, 0.2, 1),
+    cubic-bezier(0.18, 0.72, 0.2, 1),
     cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
 }
 
-html.is-animating #swup {
+html.is-leaving.is-animating .swup-transition-region {
   opacity: 0;
-}
-
-html.is-leaving.is-animating #swup {
-  transform: translate3d(0, -0.12rem, 0);
-  transition-duration: 110ms, 140ms;
+  transform: translate3d(0, -0.18rem, 0);
+  transition-duration: 120ms, 150ms;
+  transition-delay: 0ms;
   transition-timing-function:
     cubic-bezier(0.4, 0, 1, 1),
     cubic-bezier(0.4, 0, 0.8, 1);
 }
 
-html.is-rendering.is-animating #swup {
-  transform: translate3d(0, 0.42rem, 0);
-  transition-duration: 200ms, 240ms;
-  transition-timing-function:
-    cubic-bezier(0.18, 0.72, 0.2, 1),
-    cubic-bezier(0.16, 1, 0.3, 1);
+html.is-rendering.is-animating .swup-transition-region {
+  opacity: 0;
+}
+
+html.is-rendering.is-animating .swup-transition-topbar {
+  transform: translate3d(0, -0.4rem, 0);
+}
+
+html.is-rendering.is-animating .swup-transition-main {
+  transform: translate3d(0, 0.8rem, 0);
+}
+
+html.is-rendering.is-animating .swup-transition-panel {
+  transform: translate3d(0.45rem, 0.55rem, 0);
+}
+
+html.is-rendering.is-animating .swup-transition-tail {
+  transform: translate3d(0, 0.5rem, 0);
+}
+
+html.is-rendering .swup-transition-topbar {
+  transition-delay: 0ms;
+}
+
+html.is-rendering .swup-transition-main {
+  transition-delay: 45ms;
+}
+
+html.is-rendering .swup-transition-panel {
+  transition-delay: 95ms;
+}
+
+html.is-rendering .swup-transition-tail {
+  transition-delay: 135ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.is-changing #swup {
+  html.is-changing .swup-transition-region {
     transition-duration: 0.01ms;
+    transition-delay: 0ms;
   }
 }
