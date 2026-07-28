@@ -51,7 +51,6 @@ layout: compress
               col-xl-3 ps-2 text-muted
               swup-transition-region swup-transition-panel
             "
-            data-swup-transition
           >
             <div class="access">
               {% include_cached update-list.html lang=lang %}
@@ -69,11 +68,7 @@ layout: compress
           <!-- tail -->
           <div
             id="tail-wrapper"
-            class="
-              col-12 col-lg-11 col-xl-9 px-md-4
-              swup-transition-region swup-transition-tail
-            "
-            data-swup-transition
+            class="col-12 col-lg-11 col-xl-9 px-md-4"
           >
             {% for _include in layout.tail_includes %}
               {% assign _include_path = _include | append: '.html' %}

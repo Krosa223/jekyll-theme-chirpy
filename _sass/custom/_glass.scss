@@ -1100,17 +1100,21 @@ html.is-changing .swup-transition-region {
   opacity: 1;
   transform: translate3d(0, 0, 0);
   transition-property: opacity, transform;
-  transition-duration: 280ms, 340ms;
+  transition-duration: 180ms, 210ms;
   transition-timing-function:
     cubic-bezier(0.18, 0.72, 0.2, 1),
     cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
 }
 
+html.is-changing .swup-transition-main {
+  transition-duration: 200ms, 240ms;
+}
+
 html.is-leaving.is-animating .swup-transition-region {
   opacity: 0;
-  transform: translate3d(0, -0.18rem, 0);
-  transition-duration: 120ms, 150ms;
+  transform: translate3d(0, -0.12rem, 0);
+  transition-duration: 90ms, 110ms;
   transition-delay: 0ms;
   transition-timing-function:
     cubic-bezier(0.4, 0, 1, 1),
@@ -1122,19 +1126,15 @@ html.is-rendering.is-animating .swup-transition-region {
 }
 
 html.is-rendering.is-animating .swup-transition-topbar {
-  transform: translate3d(0, -0.4rem, 0);
+  transform: translate3d(0, -0.25rem, 0);
 }
 
 html.is-rendering.is-animating .swup-transition-main {
-  transform: translate3d(0, 0.8rem, 0);
+  transform: translate3d(0, 0.65rem, 0);
 }
 
 html.is-rendering.is-animating .swup-transition-panel {
-  transform: translate3d(0.45rem, 0.55rem, 0);
-}
-
-html.is-rendering.is-animating .swup-transition-tail {
-  transform: translate3d(0, 0.5rem, 0);
+  transform: translate3d(0.3rem, 0.4rem, 0);
 }
 
 html.is-rendering .swup-transition-topbar {
@@ -1142,15 +1142,11 @@ html.is-rendering .swup-transition-topbar {
 }
 
 html.is-rendering .swup-transition-main {
-  transition-delay: 45ms;
+  transition-delay: 10ms;
 }
 
 html.is-rendering .swup-transition-panel {
-  transition-delay: 95ms;
-}
-
-html.is-rendering .swup-transition-tail {
-  transition-delay: 135ms;
+  transition-delay: 35ms;
 }
 
 @media (prefers-reduced-motion: reduce) {
