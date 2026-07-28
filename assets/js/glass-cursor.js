@@ -139,7 +139,7 @@
     ensureAnimation();
   }
 
-  function buildPath(points) {
+  function buildPathSegment(points) {
     if (points.length < 2) return '';
 
     var first = points[0];
@@ -165,6 +165,27 @@
 
     var last = points[points.length - 1];
     path += ' L ' + roundCoordinate(last.x) + ' ' + roundCoordinate(last.y);
+    return path;
+  }
+
+  function buildPath(points) {
+    var path = '';
+    var segmentStart = 0;
+
+    for (var index = 1; index <= points.length; index += 1) {
+      if (index === points.length || points[index].breakBefore) {
+        var segmentPath = buildPathSegment(
+          points.slice(segmentStart, index)
+        );
+
+        if (segmentPath) {
+          path += (path ? ' ' : '') + segmentPath;
+        }
+
+        segmentStart = index;
+      }
+    }
+
     return path;
   }
 
@@ -205,23 +226,29 @@
     }
   }
 
-  function appendTrailPoint(time) {
+  function appendTrailPoint(time, breakBefore) {
     var leftPoint = {
       x: currentX + normalX * discRadius,
       y: currentY + normalY * discRadius,
-      time: time
+      time: time,
+      breakBefore: breakBefore
     };
     var rightPoint = {
       x: currentX - normalX * discRadius,
       y: currentY - normalY * discRadius,
-      time: time
+      time: time,
+      breakBefore: breakBefore
     };
     var sampleDistance = Math.hypot(
       currentX - lastSampleX,
       currentY - lastSampleY
     );
 
-    if (leftPoints.length && sampleDistance < 1.4) {
+    if (!breakBefore && leftPoints.length && sampleDistance < 1.4) {
+      leftPoint.breakBefore =
+        leftPoints[leftPoints.length - 1].breakBefore;
+      rightPoint.breakBefore =
+        rightPoints[rightPoints.length - 1].breakBefore;
       leftPoints[leftPoints.length - 1] = leftPoint;
       rightPoints[rightPoints.length - 1] = rightPoint;
     } else {
@@ -246,7 +273,7 @@
       normalX = nextNormalX;
       normalY = nextNormalY;
       normalReady = true;
-      return;
+      return false;
     }
 
     if (nextNormalX * normalX + nextNormalY * normalY < 0) {
@@ -255,12 +282,47 @@
     }
 
     var normalFollow = Math.min(0.48, 0.2 + speed * 0.018);
-    normalX += (nextNormalX - normalX) * normalFollow;
-    normalY += (nextNormalY - normalY) * normalFollow;
+    var normalDot = Math.max(
+      -1,
+      Math.min(1, normalX * nextNormalX + normalY * nextNormalY)
+    );
+    var normalCross = normalX * nextNormalY - normalY * nextNormalX;
+    var targetTurn = Math.atan2(normalCross, normalDot);
+    var blendedNormalX =
+      normalX + (nextNormalX - normalX) * normalFollow;
+    var blendedNormalY =
+      normalY + (nextNormalY - normalY) * normalFollow;
+    var blendedLength =
+      Math.hypot(blendedNormalX, blendedNormalY) || 1;
 
-    var normalLength = Math.hypot(normalX, normalY) || 1;
-    normalX /= normalLength;
-    normalY /= normalLength;
+    blendedNormalX /= blendedLength;
+    blendedNormalY /= blendedLength;
+
+    var blendedDot = Math.max(
+      -1,
+      Math.min(
+        1,
+        normalX * blendedNormalX + normalY * blendedNormalY
+      )
+    );
+    var blendedCross =
+      normalX * blendedNormalY - normalY * blendedNormalX;
+    var blendedTurn = Math.abs(
+      Math.atan2(blendedCross, blendedDot)
+    );
+    var safeTurn = Math.asin(
+      Math.min(1, speed / (discRadius * 1.15))
+    );
+
+    if (blendedTurn > safeTurn) {
+      normalX = nextNormalX;
+      normalY = nextNormalY;
+      return Math.abs(targetTurn) > 0.001;
+    }
+
+    normalX = blendedNormalX;
+    normalY = blendedNormalY;
+    return false;
   }
 
   function render(time) {
@@ -288,8 +350,8 @@
       var speed = Math.hypot(moveX, moveY);
 
       if (speed > 0.04) {
-        updateNormal(moveX, moveY, speed);
-        appendTrailPoint(time);
+        var breakTrail = updateNormal(moveX, moveY, speed);
+        appendTrailPoint(time, breakTrail);
       }
 
       positionDisc();
@@ -327,6 +389,15 @@
     setSurface(
       findSurface(document.elementFromPoint(targetX, targetY))
     );
+  }
+
+  function preserveDuringNavigation() {
+    if (!enabled || !hasPointer) return;
+
+    activeSurface = document.documentElement;
+    layer.classList.remove('is-over-glass');
+    layer.classList.add('is-active');
+    ensureAnimation();
   }
 
   function syncAvailability() {
@@ -370,7 +441,10 @@
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) deactivate();
   });
-  document.addEventListener('swup:visit:start', deactivate);
+  document.addEventListener('swup:visit:start', preserveDuringNavigation);
+  document.addEventListener('swup:page:view', function () {
+    window.requestAnimationFrame(refreshSurface);
+  });
 
   listenForMediaChange(pointerQuery);
   listenForMediaChange(motionQuery);

@@ -6,20 +6,17 @@
 
 const lightImages = '.popup:not(.dark)';
 const darkImages = '.popup:not(.light)';
-let selector = lightImages;
+const dependencyRetryDelay = 50;
+const dependencyRetryLimit = 200;
 
-function swapImages(current, reverse) {
-  if (selector === lightImages) {
-    selector = darkImages;
-  } else {
-    selector = lightImages;
-  }
-
-  if (reverse === null) {
-    reverse = GLightbox({ selector: `${selector}` });
-  }
-
-  return [reverse, current];
+function createLightbox(selector) {
+  return GLightbox({
+    selector,
+    closeButton: true,
+    touchNavigation: true,
+    keyboardNavigation: true,
+    closeOnOutsideClick: true
+  });
 }
 
 export function imgPopup() {
@@ -32,30 +29,59 @@ export function imgPopup() {
     document.querySelector('.popup.dark') === null
   );
 
-  if (Theme.isDark) {
-    selector = darkImages;
-  }
-
-  let current = GLightbox({ selector: `${selector}` });
+  let selector = Theme.isDark ? darkImages : lightImages;
+  let current = null;
   let reverse = null;
   let themeListener = null;
+  let retryTimer = null;
+  let retryCount = 0;
+  let disposed = false;
 
-  if (hasDualImages && Theme.isToggleable) {
-    themeListener = (event) => {
-      if (
-        event.source === window &&
-        event.data &&
-        event.data.id === Theme.eventId
-      ) {
-        [current, reverse] = swapImages(current, reverse);
+  const initialize = () => {
+    retryTimer = null;
+
+    if (disposed) {
+      return;
+    }
+
+    if (typeof GLightbox !== 'function') {
+      if (retryCount < dependencyRetryLimit) {
+        retryCount += 1;
+        retryTimer = window.setTimeout(initialize, dependencyRetryDelay);
       }
-    };
 
-    window.addEventListener('message', themeListener);
-  }
+      return;
+    }
+
+    selector = Theme.isDark ? darkImages : lightImages;
+    current = createLightbox(selector);
+
+    if (hasDualImages && Theme.isToggleable) {
+      themeListener = (event) => {
+        if (
+          event.source === window &&
+          event.data &&
+          event.data.id === Theme.eventId
+        ) {
+          selector = selector === lightImages ? darkImages : lightImages;
+
+          if (reverse === null) {
+            reverse = createLightbox(selector);
+          }
+
+          [current, reverse] = [reverse, current];
+        }
+      };
+
+      window.addEventListener('message', themeListener);
+    }
+  };
 
   if (typeof window.krosaRegisterPageCleanup === 'function') {
     window.krosaRegisterPageCleanup(() => {
+      disposed = true;
+      window.clearTimeout(retryTimer);
+
       if (themeListener) {
         window.removeEventListener('message', themeListener);
       }
@@ -64,4 +90,6 @@ export function imgPopup() {
       reverse?.destroy();
     });
   }
+
+  initialize();
 }

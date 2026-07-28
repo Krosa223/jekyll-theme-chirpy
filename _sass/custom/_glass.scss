@@ -352,6 +352,52 @@ main > article:not([data-toc]) > .content,
   }
 }
 
+html .glightbox-container .gclose {
+  position: fixed !important;
+  top: max(1rem, env(safe-area-inset-top)) !important;
+  right: max(1rem, env(safe-area-inset-right)) !important;
+  z-index: 1000000 !important;
+  display: grid !important;
+  place-items: center;
+  width: 2.75rem !important;
+  height: 2.75rem !important;
+  padding: 0 !important;
+  color: #ffffff !important;
+  visibility: visible !important;
+  border: 1px solid rgb(255 255 255 / 62%) !important;
+  border-radius: 50% !important;
+  background: rgb(13 24 34 / 62%) !important;
+  box-shadow:
+    0 8px 24px rgb(0 0 0 / 32%), inset 0 1px 0 rgb(255 255 255 / 34%) !important;
+  opacity: 1 !important;
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+  backdrop-filter: blur(14px) saturate(125%);
+}
+
+html .glightbox-container .gclose:hover {
+  background: rgb(13 24 34 / 84%) !important;
+}
+
+html .glightbox-container .gclose:focus-visible {
+  outline: 3px solid rgb(255 255 255 / 86%);
+  outline-offset: 3px;
+}
+
+html .glightbox-container .gclose svg {
+  display: block !important;
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+  margin: 0 !important;
+}
+
+html .glightbox-container .gclose path {
+  fill: #ffffff !important;
+}
+
+html .glightbox-closing .gclose {
+  opacity: 0 !important;
+}
+
 .post-article > .post-hero-plain,
 .post-article > .content,
 .post-article > .post-tail-wrapper {
@@ -1109,10 +1155,6 @@ main > article:not([data-toc]) > .content,
 
 .glass-cursor-effect.is-active {
   opacity: 1;
-}
-
-html.is-changing .glass-cursor-effect {
-  opacity: 0;
 }
 
 .glass-cursor-trails {
