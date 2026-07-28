@@ -1096,9 +1096,13 @@ main > article:not([data-toc]) > .content,
   }
 }
 
+.swup-transition-region {
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
+
 html.is-changing .swup-transition-region {
   opacity: 1;
-  transform: translate3d(0, 0, 0);
   transition-property: opacity, transform;
   transition-duration: 180ms, 210ms;
   transition-timing-function:
