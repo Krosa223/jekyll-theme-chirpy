@@ -1104,7 +1104,7 @@ main > article:not([data-toc]) > .content,
   pointer-events: none;
   opacity: 0;
   transition: opacity 140ms ease-out;
-  will-change: opacity, clip-path;
+  will-change: opacity;
 }
 
 .glass-cursor-effect.is-active {

@@ -92,63 +92,6 @@
     return element.closest(surfaceSelector);
   }
 
-  function readSurfaceRadius(surface, rect) {
-    var style = window.getComputedStyle(surface);
-    var radii = [
-      style.borderTopLeftRadius,
-      style.borderTopRightRadius,
-      style.borderBottomRightRadius,
-      style.borderBottomLeftRadius
-    ]
-      .map(function (value) {
-        return parseFloat(value);
-      })
-      .filter(function (value) {
-        return Number.isFinite(value);
-      });
-    var radius = radii.length ? Math.max.apply(null, radii) : 0;
-
-    return Math.min(radius, rect.width / 2, rect.height / 2);
-  }
-
-  function updateClip() {
-    if (!activeSurface || !activeSurface.isConnected) return false;
-
-    var rect = activeSurface.getBoundingClientRect();
-    if (
-      rect.width <= 0 ||
-      rect.height <= 0 ||
-      rect.right <= 0 ||
-      rect.bottom <= 0 ||
-      rect.left >= window.innerWidth ||
-      rect.top >= window.innerHeight
-    ) {
-      return false;
-    }
-
-    var top = Math.max(0, rect.top);
-    var right = Math.max(0, window.innerWidth - rect.right);
-    var bottom = Math.max(0, window.innerHeight - rect.bottom);
-    var left = Math.max(0, rect.left);
-    var radius = readSurfaceRadius(activeSurface, rect);
-    var inset =
-      'inset(' +
-      top +
-      'px ' +
-      right +
-      'px ' +
-      bottom +
-      'px ' +
-      left +
-      'px round ' +
-      radius +
-      'px)';
-
-    layer.style.clipPath = inset;
-    layer.style.webkitClipPath = inset;
-    return true;
-  }
-
   function clearTrail() {
     leftPoints = [];
     rightPoints = [];
@@ -175,27 +118,21 @@
   }
 
   function setSurface(surface) {
-    if (!enabled || !surface) {
+    if (!enabled) {
       deactivate();
       return;
     }
 
     var wasActive = Boolean(activeSurface);
-    if (surface !== activeSurface) {
-      activeSurface = surface;
+    activeSurface = surface || document.documentElement;
+    layer.classList.toggle('is-over-glass', Boolean(surface));
+
+    if (!wasActive) {
       clearTrail();
-
-      if (!wasActive) {
-        currentX = targetX;
-        currentY = targetY;
-        normalReady = false;
-        positionDisc();
-      }
-    }
-
-    if (!updateClip()) {
-      deactivate();
-      return;
+      currentX = targetX;
+      currentY = targetY;
+      normalReady = false;
+      positionDisc();
     }
 
     layer.classList.add('is-active');
