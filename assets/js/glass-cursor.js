@@ -30,8 +30,8 @@
   var discRadius = 16;
   var trailLifetime = 520;
   var maxTrailPoints = 24;
-  var clickBurstDelay = 48;
-  var clickBurstDuration = 540;
+  var clickBurstDelay = 34;
+  var clickBurstDuration = 620;
   var maxClickBursts = 6;
   var maxClickRipples = 5;
   var enabled = false;
@@ -174,17 +174,21 @@
     }, 900);
   }
 
-  function createBurstFragments() {
+  function createBurstFragments(direction) {
     var fragments = [];
-    var phase = Math.random() * Math.PI * 2;
+    var side = Math.random() < 0.5 ? -1 : 1;
+    var offsets = [-side * 0.14, side * 0.42, side * 0.96];
 
-    for (var index = 0; index < 4; index += 1) {
+    for (var index = 0; index < offsets.length; index += 1) {
       fragments.push({
-        angle: phase + index * (Math.PI / 2) + (Math.random() - 0.5) * 0.34,
-        delay: Math.random() * 0.08,
-        distance: 24 + Math.random() * 13,
-        size: 1.8 + Math.random() * 1.4,
-        spin: (Math.random() - 0.5) * 2.4
+        angle: direction + offsets[index] + (Math.random() - 0.5) * 0.2,
+        curve: side * (2.5 + Math.random() * 4.5),
+        delay: 0.07 + index * 0.025 + Math.random() * 0.025,
+        distance: 29 + index * 7 + Math.random() * 10,
+        length: 5.5 + Math.random() * 3.8,
+        width: 2.6 + Math.random() * 1.8,
+        spin: side * (0.28 + Math.random() * 0.62) * (index === 1 ? -1 : 1),
+        colorIndex: index
       });
     }
 
@@ -194,12 +198,16 @@
   function queueClickBurst(x, y) {
     if (!clickContext) return;
 
+    var rotation = Math.random() * Math.PI * 2;
+    var spinDirection = Math.random() < 0.5 ? -1 : 1;
+
     clickBursts.push({
       x: x,
       y: y,
       startTime: null,
-      rotation: Math.random() * Math.PI * 2,
-      fragments: createBurstFragments()
+      rotation: rotation,
+      spinDirection: spinDirection,
+      fragments: createBurstFragments(rotation + spinDirection * 0.5)
     });
 
     while (clickBursts.length > maxClickBursts) {
@@ -211,17 +219,21 @@
     return 1 - Math.pow(1 - progress, 3);
   }
 
+  function clampProgress(progress) {
+    return Math.max(0, Math.min(1, progress));
+  }
+
   function drawClickGlow(context, progress, eased) {
-    var opacity = Math.pow(1 - progress, 1.45);
-    var radius = 14 + eased * 43;
+    var opacity = Math.pow(1 - progress, 1.6);
+    var radius = 9 + eased * 14;
     var glow = context.createRadialGradient(0, 0, 0, 0, 0, radius);
 
-    glow.addColorStop(0, 'rgba(220, 249, 255, ' + 0.13 * opacity + ')');
+    glow.addColorStop(0, 'rgba(142, 225, 255, ' + 0.22 * opacity + ')');
     glow.addColorStop(
-      0.42,
-      'rgba(105, 218, 255, ' + 0.08 * opacity + ')'
+      0.48,
+      'rgba(76, 167, 255, ' + 0.12 * opacity + ')'
     );
-    glow.addColorStop(1, 'rgba(83, 196, 255, 0)');
+    glow.addColorStop(1, 'rgba(43, 135, 235, 0)');
 
     context.fillStyle = glow;
     context.beginPath();
@@ -229,60 +241,145 @@
     context.fill();
   }
 
-  function drawClickRings(context, burst, progress, eased) {
-    var opacity = Math.pow(1 - progress, 1.2);
-    var radius = 17 + eased * 27;
-    var rotation = burst.rotation - 0.34 + eased * 1.18;
+  function drawGrowingArc(
+    context,
+    radius,
+    startAngle,
+    arcLength,
+    lineWidth,
+    opacity,
+    color
+  ) {
+    var segmentCount = Math.max(
+      3,
+      Math.ceil(Math.abs(arcLength) / 0.22)
+    );
+    var step = arcLength / segmentCount;
+    var gap = Math.min(Math.abs(step) * 0.2, 0.028);
+    var direction = step < 0 ? -1 : 1;
 
     context.lineCap = 'round';
-    context.lineWidth = 0.8 + (1 - progress) * 1.45;
-    context.strokeStyle = 'rgba(203, 245, 255, ' + 0.82 * opacity + ')';
-    context.shadowColor = 'rgba(82, 207, 255, ' + 0.68 * opacity + ')';
-    context.shadowBlur = 9 * opacity;
+    context.shadowColor = 'rgba(63, 172, 255, ' + 0.58 * opacity + ')';
+    context.shadowBlur = 7 * opacity;
 
-    context.beginPath();
-    context.arc(0, 0, radius, rotation + 0.12, rotation + 2.18);
-    context.stroke();
-    context.beginPath();
-    context.arc(0, 0, radius, rotation + 3.27, rotation + 5.46);
-    context.stroke();
+    for (var index = 0; index < segmentCount; index += 1) {
+      var tailProgress = (index + 1) / segmentCount;
+      var segmentStart = startAngle + step * index;
+      var segmentEnd = segmentStart + step - gap * direction;
+      var segmentOpacity =
+        opacity * (0.1 + Math.pow(tailProgress, 1.55) * 0.9);
 
-    context.lineWidth = 0.7;
-    context.strokeStyle = 'rgba(255, 255, 255, ' + 0.48 * opacity + ')';
-    context.shadowBlur = 4 * opacity;
-    context.beginPath();
-    context.arc(0, 0, radius * 0.72, 0, Math.PI * 2);
-    context.stroke();
+      context.lineWidth = lineWidth * (0.7 + tailProgress * 0.3);
+      context.strokeStyle =
+        'rgba(' +
+        color[0] +
+        ', ' +
+        color[1] +
+        ', ' +
+        color[2] +
+        ', ' +
+        segmentOpacity +
+        ')';
+      context.beginPath();
+      context.arc(
+        0,
+        0,
+        radius,
+        segmentStart,
+        segmentEnd,
+        direction < 0
+      );
+      context.stroke();
+    }
+  }
+
+  function drawClickRings(context, burst, progress, eased) {
+    var growth = easeOutCubic(clampProgress(progress / 0.68));
+    var secondaryGrowth = easeOutCubic(
+      clampProgress((progress - 0.08) / 0.72)
+    );
+    var fade =
+      progress < 0.52
+        ? 1
+        : Math.pow(1 - clampProgress((progress - 0.52) / 0.48), 1.25);
+    var radius = 22 + eased * 21;
+    var direction = burst.spinDirection;
+    var rotation =
+      burst.rotation + direction * (0.2 + eased * 2.45);
+    var primaryLength = direction * (0.16 + growth * 4.18);
+    var secondaryLength =
+      -direction * (0.1 + secondaryGrowth * 2.08);
+
+    drawGrowingArc(
+      context,
+      radius,
+      rotation,
+      primaryLength,
+      1.3 + (1 - progress) * 0.85,
+      fade * 0.92,
+      [76, 167, 255]
+    );
+    drawGrowingArc(
+      context,
+      radius * 0.76,
+      rotation + direction * 2.72,
+      secondaryLength,
+      0.85 + (1 - progress) * 0.42,
+      fade * 0.72,
+      [108, 217, 255]
+    );
   }
 
   function drawClickFragments(context, burst, progress) {
+    var fragmentColors = [
+      [76, 167, 255],
+      [105, 214, 255],
+      [42, 132, 231]
+    ];
+
     burst.fragments.forEach(function (fragment) {
-      var fragmentProgress = Math.max(
-        0,
-        Math.min(1, (progress - fragment.delay) / (1 - fragment.delay))
+      var fragmentProgress = clampProgress(
+        (progress - fragment.delay) / (1 - fragment.delay)
       );
 
       if (!fragmentProgress) return;
 
       var eased = easeOutCubic(fragmentProgress);
-      var opacity = Math.sin(Math.PI * fragmentProgress) * 0.86;
-      var distance = 12 + fragment.distance * eased;
-      var x = Math.cos(fragment.angle) * distance;
-      var y = Math.sin(fragment.angle) * distance;
+      var fadeIn = clampProgress(fragmentProgress / 0.12);
+      var opacity = fadeIn * Math.pow(1 - fragmentProgress, 1.08) * 0.9;
+      var distance = 11 + fragment.distance * eased;
+      var curve = fragment.curve * Math.sin(Math.PI * fragmentProgress);
+      var normalX = -Math.sin(fragment.angle);
+      var normalY = Math.cos(fragment.angle);
+      var x = Math.cos(fragment.angle) * distance + normalX * curve;
+      var y = Math.sin(fragment.angle) * distance + normalY * curve;
+      var color = fragmentColors[fragment.colorIndex % fragmentColors.length];
 
       context.save();
       context.translate(x, y);
       context.rotate(fragment.angle + fragment.spin * eased);
-      context.fillStyle = 'rgba(222, 250, 255, ' + opacity + ')';
-      context.shadowColor = 'rgba(86, 211, 255, ' + opacity + ')';
+      context.fillStyle =
+        'rgba(' +
+        color[0] +
+        ', ' +
+        color[1] +
+        ', ' +
+        color[2] +
+        ', ' +
+        opacity +
+        ')';
+      context.strokeStyle = 'rgba(204, 244, 255, ' + 0.62 * opacity + ')';
+      context.lineWidth = 0.65;
+      context.lineJoin = 'round';
+      context.shadowColor = 'rgba(65, 176, 255, ' + 0.72 * opacity + ')';
       context.shadowBlur = 6 * opacity;
       context.beginPath();
-      context.moveTo(0, -fragment.size * 1.7);
-      context.lineTo(fragment.size, 0);
-      context.lineTo(0, fragment.size * 1.7);
-      context.lineTo(-fragment.size, 0);
+      context.moveTo(fragment.length, 0);
+      context.lineTo(-fragment.length * 0.52, -fragment.width);
+      context.lineTo(-fragment.length * 0.16, fragment.width * 0.62);
       context.closePath();
       context.fill();
+      context.stroke();
       context.restore();
     });
   }
@@ -292,7 +389,7 @@
 
     context.save();
     context.translate(burst.x, burst.y);
-    context.globalCompositeOperation = 'lighter';
+    context.globalCompositeOperation = 'source-over';
     drawClickGlow(context, progress, eased);
     drawClickRings(context, burst, progress, eased);
     drawClickFragments(context, burst, progress);
