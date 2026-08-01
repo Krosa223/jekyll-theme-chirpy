@@ -30,6 +30,10 @@
   var discRadius = 16;
   var trailLifetime = 520;
   var maxTrailPoints = 24;
+  var clickBurstDelay = 48;
+  var clickBurstDuration = 540;
+  var maxClickBursts = 6;
+  var maxClickRipples = 5;
   var enabled = false;
   var activeSurface = null;
   var hasPointer = false;
@@ -45,6 +49,8 @@
   var lastFrameTime = 0;
   var animationFrame = 0;
   var trailPoints = [];
+  var clickBursts = [];
+  var clickRipples = [];
 
   var layer = document.createElement('div');
   layer.className = 'glass-cursor-effect';
@@ -68,11 +74,16 @@
     '<path class="glass-cursor-trail glass-cursor-trail-edge" data-glass-trail="left" stroke="url(#glass-cursor-left-gradient)"></path>',
     '<path class="glass-cursor-trail glass-cursor-trail-edge" data-glass-trail="right" stroke="url(#glass-cursor-right-gradient)"></path>',
     '</svg>',
+    '<canvas class="glass-click-bursts"></canvas>',
     '<div class="glass-cursor-disc"></div>'
   ].join('');
   document.body.appendChild(layer);
 
   var disc = layer.querySelector('.glass-cursor-disc');
+  var clickCanvas = layer.querySelector('.glass-click-bursts');
+  var clickContext = clickCanvas && clickCanvas.getContext('2d');
+  var clickCanvasWidth = 0;
+  var clickCanvasHeight = 0;
   var leftPaths = Array.prototype.slice.call(
     layer.querySelectorAll('[data-glass-trail="left"]')
   );
@@ -108,6 +119,216 @@
       'px, ' +
       roundCoordinate(currentY - discRadius) +
       'px, 0)';
+  }
+
+  function resizeClickCanvas() {
+    if (!clickContext) return;
+
+    var dpr = Math.min(1.25, window.devicePixelRatio || 1);
+    clickCanvasWidth = window.innerWidth;
+    clickCanvasHeight = window.innerHeight;
+    clickCanvas.width = Math.round(clickCanvasWidth * dpr);
+    clickCanvas.height = Math.round(clickCanvasHeight * dpr);
+    clickContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function removeClickRipple(ripple) {
+    var index = clickRipples.indexOf(ripple);
+
+    if (index !== -1) {
+      clickRipples.splice(index, 1);
+    }
+
+    ripple.remove();
+  }
+
+  function createGlassRipple(x, y) {
+    var ripple = document.createElement('div');
+    ripple.className = 'glass-click-ripple';
+    ripple.style.transform =
+      'translate3d(' + roundCoordinate(x) + 'px, ' +
+      roundCoordinate(y) + 'px, 0)';
+    ripple.innerHTML = [
+      '<span class="glass-click-wave glass-click-wave-primary"></span>',
+      '<span class="glass-click-wave glass-click-wave-secondary"></span>'
+    ].join('');
+
+    layer.appendChild(ripple);
+    clickRipples.push(ripple);
+
+    while (clickRipples.length > maxClickRipples) {
+      removeClickRipple(clickRipples[0]);
+    }
+
+    var finalWave = ripple.querySelector('.glass-click-wave-secondary');
+    finalWave.addEventListener(
+      'animationend',
+      function () {
+        removeClickRipple(ripple);
+      },
+      { once: true }
+    );
+
+    window.setTimeout(function () {
+      removeClickRipple(ripple);
+    }, 900);
+  }
+
+  function createBurstFragments() {
+    var fragments = [];
+    var phase = Math.random() * Math.PI * 2;
+
+    for (var index = 0; index < 4; index += 1) {
+      fragments.push({
+        angle: phase + index * (Math.PI / 2) + (Math.random() - 0.5) * 0.34,
+        delay: Math.random() * 0.08,
+        distance: 24 + Math.random() * 13,
+        size: 1.8 + Math.random() * 1.4,
+        spin: (Math.random() - 0.5) * 2.4
+      });
+    }
+
+    return fragments;
+  }
+
+  function queueClickBurst(x, y) {
+    if (!clickContext) return;
+
+    clickBursts.push({
+      x: x,
+      y: y,
+      startTime: null,
+      rotation: Math.random() * Math.PI * 2,
+      fragments: createBurstFragments()
+    });
+
+    while (clickBursts.length > maxClickBursts) {
+      clickBursts.shift();
+    }
+  }
+
+  function easeOutCubic(progress) {
+    return 1 - Math.pow(1 - progress, 3);
+  }
+
+  function drawClickGlow(context, progress, eased) {
+    var opacity = Math.pow(1 - progress, 1.45);
+    var radius = 14 + eased * 43;
+    var glow = context.createRadialGradient(0, 0, 0, 0, 0, radius);
+
+    glow.addColorStop(0, 'rgba(220, 249, 255, ' + 0.13 * opacity + ')');
+    glow.addColorStop(
+      0.42,
+      'rgba(105, 218, 255, ' + 0.08 * opacity + ')'
+    );
+    glow.addColorStop(1, 'rgba(83, 196, 255, 0)');
+
+    context.fillStyle = glow;
+    context.beginPath();
+    context.arc(0, 0, radius, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  function drawClickRings(context, burst, progress, eased) {
+    var opacity = Math.pow(1 - progress, 1.2);
+    var radius = 17 + eased * 27;
+    var rotation = burst.rotation - 0.34 + eased * 1.18;
+
+    context.lineCap = 'round';
+    context.lineWidth = 0.8 + (1 - progress) * 1.45;
+    context.strokeStyle = 'rgba(203, 245, 255, ' + 0.82 * opacity + ')';
+    context.shadowColor = 'rgba(82, 207, 255, ' + 0.68 * opacity + ')';
+    context.shadowBlur = 9 * opacity;
+
+    context.beginPath();
+    context.arc(0, 0, radius, rotation + 0.12, rotation + 2.18);
+    context.stroke();
+    context.beginPath();
+    context.arc(0, 0, radius, rotation + 3.27, rotation + 5.46);
+    context.stroke();
+
+    context.lineWidth = 0.7;
+    context.strokeStyle = 'rgba(255, 255, 255, ' + 0.48 * opacity + ')';
+    context.shadowBlur = 4 * opacity;
+    context.beginPath();
+    context.arc(0, 0, radius * 0.72, 0, Math.PI * 2);
+    context.stroke();
+  }
+
+  function drawClickFragments(context, burst, progress) {
+    burst.fragments.forEach(function (fragment) {
+      var fragmentProgress = Math.max(
+        0,
+        Math.min(1, (progress - fragment.delay) / (1 - fragment.delay))
+      );
+
+      if (!fragmentProgress) return;
+
+      var eased = easeOutCubic(fragmentProgress);
+      var opacity = Math.sin(Math.PI * fragmentProgress) * 0.86;
+      var distance = 12 + fragment.distance * eased;
+      var x = Math.cos(fragment.angle) * distance;
+      var y = Math.sin(fragment.angle) * distance;
+
+      context.save();
+      context.translate(x, y);
+      context.rotate(fragment.angle + fragment.spin * eased);
+      context.fillStyle = 'rgba(222, 250, 255, ' + opacity + ')';
+      context.shadowColor = 'rgba(86, 211, 255, ' + opacity + ')';
+      context.shadowBlur = 6 * opacity;
+      context.beginPath();
+      context.moveTo(0, -fragment.size * 1.7);
+      context.lineTo(fragment.size, 0);
+      context.lineTo(0, fragment.size * 1.7);
+      context.lineTo(-fragment.size, 0);
+      context.closePath();
+      context.fill();
+      context.restore();
+    });
+  }
+
+  function drawClickBurst(context, burst, progress) {
+    var eased = easeOutCubic(progress);
+
+    context.save();
+    context.translate(burst.x, burst.y);
+    context.globalCompositeOperation = 'lighter';
+    drawClickGlow(context, progress, eased);
+    drawClickRings(context, burst, progress, eased);
+    drawClickFragments(context, burst, progress);
+    context.restore();
+  }
+
+  function drawClickBursts(time) {
+    if (!clickContext) return false;
+
+    clickContext.clearRect(0, 0, clickCanvasWidth, clickCanvasHeight);
+
+    clickBursts = clickBursts.filter(function (burst) {
+      if (burst.startTime === null) {
+        burst.startTime = time + clickBurstDelay;
+      }
+
+      if (time < burst.startTime) return true;
+
+      var progress = (time - burst.startTime) / clickBurstDuration;
+
+      if (progress >= 1) return false;
+
+      drawClickBurst(clickContext, burst, Math.max(0, progress));
+      return true;
+    });
+
+    return clickBursts.length > 0;
+  }
+
+  function clearClickEffects() {
+    clickBursts = [];
+    clickRipples.slice().forEach(removeClickRipple);
+
+    if (clickContext) {
+      clickContext.clearRect(0, 0, clickCanvasWidth, clickCanvasHeight);
+    }
   }
 
   function deactivate() {
@@ -374,6 +595,7 @@
 
     trimTrail(time);
     updateTrailGeometry();
+    var hasClickBursts = drawClickBursts(time);
 
     var distanceToTarget = Math.hypot(
       targetX - currentX,
@@ -381,7 +603,8 @@
     );
     if (
       (activeSurface && distanceToTarget > 0.04) ||
-      trailPoints.length > 0
+      trailPoints.length > 0 ||
+      hasClickBursts
     ) {
       animationFrame = window.requestAnimationFrame(render);
     } else {
@@ -417,7 +640,10 @@
 
   function syncAvailability() {
     enabled = pointerQuery.matches && !motionQuery.matches;
-    if (!enabled) deactivate();
+    if (!enabled) {
+      clearClickEffects();
+      deactivate();
+    }
   }
 
   function listenForMediaChange(query) {
@@ -441,6 +667,27 @@
     { passive: true }
   );
 
+  document.addEventListener(
+    'pointerdown',
+    function (event) {
+      if (
+        !enabled ||
+        event.button !== 0 ||
+        (event.pointerType && event.pointerType !== 'mouse')
+      ) {
+        return;
+      }
+
+      targetX = event.clientX;
+      targetY = event.clientY;
+      setSurface(findSurface(event.target));
+      createGlassRipple(event.clientX, event.clientY);
+      queueClickBurst(event.clientX, event.clientY);
+      ensureAnimation();
+    },
+    { passive: true }
+  );
+
   window.addEventListener(
     'scroll',
     function () {
@@ -448,7 +695,14 @@
     },
     { capture: true, passive: true }
   );
-  window.addEventListener('resize', refreshSurface, { passive: true });
+  window.addEventListener(
+    'resize',
+    function () {
+      resizeClickCanvas();
+      refreshSurface();
+    },
+    { passive: true }
+  );
   window.addEventListener('blur', deactivate);
   window.addEventListener('pointerout', function (event) {
     if (!event.relatedTarget) deactivate();
@@ -463,6 +717,7 @@
 
   listenForMediaChange(pointerQuery);
   listenForMediaChange(motionQuery);
+  resizeClickCanvas();
   syncAvailability();
 
   window.krosaGlassCursor = {
