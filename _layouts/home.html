@@ -46,11 +46,21 @@ layout: default
   {% endfor %}
 {% endif %}
 
-<div id="post-list" class="flex-grow-1 px-xl-1">
+<h1 class="visually-hidden">{{ site.title }}</h1>
+<div class="home-reading">
+<nav class="home-topics" aria-label="{{ site.data.locales[lang].panel.trending_tags }}">
+  {% include trending-tags.html lang=lang %}
+</nav>
+<div id="post-list" class="flex-grow-1">
   {% for post in posts %}
-    <article class="card-wrapper card">
-      <a href="{{ post.url | relative_url }}" class="post-preview row g-0 flex-md-row-reverse">
-        {% assign card_body_col = '12' %}
+    {% assign card_variant = 'compact' %}
+    {% if paginator.page == 1 and forloop.index <= 2 %}
+      {% assign card_variant = 'featured' %}
+    {% endif %}
+    <article class="card-wrapper card home-post-card home-post-{{ card_variant }}{% if post.image %} home-post-with-cover{% endif %}">
+      <a href="{{ post.url | relative_url }}" class="post-preview">
+        {% assign lqip_attr = '' %}
+        {% assign card_media = '' %}
 
         {% if post.image %}
           {% assign src = post.image.path | default: post.image %}
@@ -85,35 +95,45 @@ layout: default
 
           {% assign alt = post.image.alt | xml_escape | default: 'Preview Image' %}
 
-          <div class="post-preview-media col-md-5">
-            <img src="{{ src }}" alt="{{ alt }}" {{ lqip_attr }}>
-          </div>
-
-          {% assign card_body_col = '7' %}
+          {% capture card_media %}
+            <div class="post-preview-media">
+              <img src="{{ src }}" alt="{{ alt }}" {{ lqip_attr }}>
+            </div>
+          {% endcapture %}
         {% endif %}
 
-        <div class="post-preview-copy col-md-{{ card_body_col }}">
+        {% if card_variant == 'featured' %}{{ card_media }}{% endif %}
+        <div class="post-preview-copy">
           <div class="card-body d-flex flex-column">
-            <h1 class="card-title my-2 mt-md-0">{{ post.title }}</h1>
-
-            <div class="card-text content mt-0 mb-3">
-              <p>{% include post-summary.html %}</p>
+            <div class="post-preview-heading">
+              <h2 class="card-title">{{ post.title }}</h2>
+              {% if card_variant == 'compact' %}{{ card_media }}{% endif %}
             </div>
 
+            {% if card_variant == 'featured' %}
+            <div class="card-text content">
+              <p>{% include post-summary.html %}</p>
+            </div>
+            {% endif %}
+
             <div class="post-meta flex-grow-1 d-flex align-items-end">
-              <div class="me-auto">
+              <div class="post-meta-items me-auto">
                 <!-- posted date -->
-                <i class="far fa-calendar fa-fw me-1"></i>
-                {% include datetime.html date=post.date lang=lang %}
+                <span class="post-meta-item">
+                  <i class="far fa-calendar fa-fw" aria-hidden="true"></i>
+                  {% include datetime.html date=post.date lang=lang %}
+                </span>
 
                 <!-- categories -->
-                {% if post.categories.size > 0 %}
-                  <i class="far fa-folder-open fa-fw me-1"></i>
-                  <span class="categories">
-                    {% for category in post.categories %}
-                      {{ category }}
-                      {%- unless forloop.last -%},{%- endunless -%}
-                    {% endfor %}
+                {% if card_variant == 'featured' and post.categories.size > 0 %}
+                  <span class="post-meta-item">
+                    <i class="far fa-folder-open fa-fw" aria-hidden="true"></i>
+                    <span class="categories">
+                      {% for category in post.categories %}
+                        {{ category }}
+                        {%- unless forloop.last -%},{%- endunless -%}
+                      {% endfor %}
+                    </span>
                   </span>
                 {% endif %}
               </div>
@@ -134,6 +154,7 @@ layout: default
   {% endfor %}
 </div>
 <!-- #post-list -->
+</div>
 
 {% if paginator.total_pages > 1 %}
   {% include post-paginator.html %}

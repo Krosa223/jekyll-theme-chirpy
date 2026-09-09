@@ -23,11 +23,11 @@ layout: compress
     <div id="main-wrapper" class="d-flex justify-content-center">
       <div
         id="swup"
-        class="container d-flex flex-column px-xxl-5"
+        class="container d-flex flex-column px-xxl-5{% if page.layout == 'home' %} home-layout{% endif %}"
       >
         {% include topbar.html lang=lang %}
 
-        <div class="row flex-grow-1">
+        <div class="row flex-grow-1 site-content-row">
           <main
             aria-label="Main Content"
             class="
@@ -44,6 +44,7 @@ layout: compress
           </main>
 
           <!-- panel -->
+          {% unless page.layout == 'home' %}
           <aside
             aria-label="Panel"
             id="panel-wrapper"
@@ -62,9 +63,10 @@ layout: compress
               {% include {{ _include_path }} lang=lang %}
             {% endfor %}
           </aside>
+          {% endunless %}
         </div>
 
-        <div class="row">
+        <div class="row site-tail-row">
           <!-- tail -->
           <div
             id="tail-wrapper"

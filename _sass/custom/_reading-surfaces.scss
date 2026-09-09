@@ -1,0 +1,314 @@
+/* Text surfaces share the existing panel blur; no extra full-card glass layer. */
+@mixin dark-reading-surfaces {
+  --reading-title-bg: rgb(8 17 25 / 70%);
+  --reading-copy-bg: rgb(8 17 25 / 42%);
+  --reading-chip-bg: rgb(8 17 25 / 62%);
+  --reading-edge: rgb(225 239 248 / 22%);
+  --reading-ink: #f3f7fa;
+  --reading-secondary: #d2dfe8;
+  --reading-link: #d6edff;
+}
+
+:root {
+  --reading-title-bg: rgb(255 255 255 / 66%);
+  --reading-copy-bg: rgb(255 255 255 / 34%);
+  --reading-chip-bg: rgb(255 255 255 / 55%);
+  --reading-edge: rgb(255 255 255 / 62%);
+  --reading-ink: #111d25;
+  --reading-secondary: #344b59;
+  --reading-link: #204859;
+}
+
+:root[data-bs-theme='dark'] {
+  @include dark-reading-surfaces;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-bs-theme]) {
+    @include dark-reading-surfaces;
+  }
+}
+
+@mixin text-surface($background, $radius, $padding) {
+  max-width: 100%;
+  padding: $padding;
+  border: 1px solid var(--reading-edge) !important;
+  border-radius: $radius;
+  background: $background !important;
+  box-shadow: none !important;
+  color: var(--reading-ink) !important;
+  font-family: inherit;
+  font-style: normal;
+  letter-spacing: 0;
+  text-shadow: none !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* One compact heading plate, never another plate on its child link or anchor. */
+#main-wrapper :is(
+  h1.dynamic-title,
+  .category-folder-title,
+  .category-folder-sheet h2,
+  #page-category > h1,
+  #page-tag > h1,
+  .post-hero-content > h1,
+  #related-posts > h3,
+  #related-posts h4,
+  #search-results h2,
+  main > article > .content > h1,
+  main > article > .content > h2,
+  main > article > .content > h3,
+  main > article > .content > h4,
+  main > article > .content > h5,
+  main > article > .content > h6
+) {
+  @include text-surface(var(--reading-title-bg), 0.4rem, 0.3em 0.55em);
+
+  width: fit-content;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+
+  :is(a, span, i) {
+    color: inherit !important;
+    text-shadow: none !important;
+  }
+}
+
+/* A paragraph or list is a single reading unit; media and code keep their own frame. */
+#main-wrapper :is(
+  main > article > .content > p:not(:has(img, picture, video, audio, iframe)),
+  main > article > .content > ul:not(.list-unstyled),
+  main > article > .content > ol,
+  main > article > .content > blockquote,
+  .post-hero-content > .post-desc,
+  #related-posts .card-body > .text-muted,
+  #search-results .content > p
+) {
+  @include text-surface(var(--reading-copy-bg), 0.5rem, 0.7em 0.85em);
+
+  font-weight: 400;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+#main-wrapper main > article > .content > :is(ul:not(.list-unstyled), ol) {
+  padding-left: 2.2em !important;
+}
+
+#main-wrapper main > article > .content > blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+/* Small metadata and navigable text use the same pill family. */
+#main-wrapper :is(
+  .post-hero-fact,
+  .post-hero-tags > a,
+  .post-tail-wrapper .post-meta > a,
+  .post-tail-wrapper .post-tags > a,
+  .post-tail-wrapper .license-wrapper,
+  #related-posts .card-body > time,
+  #tags .tag,
+  .post-tag,
+  #archives .archive-post-title,
+  #page-category li > a,
+  #page-tag li > a,
+  #page-category li > time,
+  #page-tag li > time,
+  .category-folder-eyebrow,
+  .category-folder-count,
+  .category-folder-posts a > span,
+  .category-folder-posts time,
+  .category-folder-all,
+  #toc a
+) {
+  @include text-surface(var(--reading-chip-bg), 1rem, 0.22em 0.65em);
+
+  width: fit-content;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--reading-secondary) !important;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+#main-wrapper :is(
+  #tags .tag,
+  .post-tag,
+  #panel-wrapper .access li > a,
+  #archives .archive-post-title,
+  #page-category li > a,
+  #page-tag li > a,
+  .category-folder-posts a > span,
+  .category-folder-all,
+  #toc a
+) {
+  color: var(--reading-link) !important;
+}
+
+#main-wrapper :is(#tags .tag, .post-tag) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+}
+
+#main-wrapper :is(.post-hero-fact, .post-tail-wrapper .license-wrapper, #related-posts time) {
+  display: inline-block;
+  font-size: 0.82rem;
+
+  :is(a, time, em, i) {
+    color: inherit !important;
+    text-shadow: none !important;
+  }
+}
+
+#main-wrapper .category-page-heading {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+#main-wrapper #panel-wrapper {
+  .panel-heading {
+    margin-bottom: 0.65rem;
+    color: var(--reading-ink);
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-shadow: none;
+  }
+
+  .access li {
+    margin-bottom: 0.4rem;
+    overflow: visible;
+    white-space: normal;
+
+    > a {
+      display: -webkit-box;
+      width: fit-content;
+      padding-block: 0.15rem;
+      overflow: hidden;
+      font-size: 0.84rem;
+      line-height: 1.6;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+
+      &:is(:hover, :focus-visible) {
+        color: var(--reading-ink) !important;
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+      }
+    }
+  }
+
+  .access :is(ul.content, section > .d-flex) {
+    margin: 0 !important;
+  }
+}
+
+#main-wrapper :is(#breadcrumb, #topbar-title) {
+  color: var(--reading-ink) !important;
+  text-shadow: none !important;
+}
+
+#main-wrapper main > article > .content > :is(p, ul:not(.list-unstyled), ol, blockquote) a:not(:has(img, picture)):not(.anchor):not(.popup) {
+  color: var(--reading-link);
+  font-weight: 500;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+#main-wrapper .category-folder-posts a > span {
+  flex: 0 1 auto;
+}
+
+#main-wrapper .category-folder-posts a {
+  justify-content: flex-start;
+}
+
+#main-wrapper .category-folder-posts time {
+  margin-left: auto;
+}
+
+#main-wrapper .post-hero-with-cover :is(h1, .post-desc, .post-hero-fact, .post-hero-tags a) {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+#main-wrapper #archives :is(.archive-year-label, .archive-date-label) {
+  @include text-surface(var(--reading-chip-bg), 0.5rem, 0.15em 0);
+
+  border: 0 !important;
+  line-height: 1.6;
+}
+
+#main-wrapper #archives .archive-date-label {
+  display: inline-block;
+  font-size: 1rem;
+
+  .date {
+    right: 0;
+    color: var(--reading-secondary) !important;
+  }
+}
+
+#main-wrapper #archives .archive-post-title {
+  display: inline-block;
+  max-width: calc(100% - 6.5rem) !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Existing chips/paragraphs are already backed; do not frost their descendants again. */
+#main-wrapper .post-navigation .btn::before,
+#main-wrapper .post-navigation p {
+  @include text-surface(var(--reading-chip-bg), 1rem, 0.22em 0.7em);
+
+  display: table;
+  width: fit-content;
+  margin-inline: auto;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+#main-wrapper .post-navigation p {
+  margin-top: 0.45rem;
+  font-size: 1rem;
+}
+
+#main-wrapper :is(#page-category, #page-tag) {
+  li {
+    align-items: center;
+    gap: 0.35rem;
+    padding-block: 0.45rem;
+  }
+
+}
+
+#main-wrapper #related-posts {
+  --glass-chrome-color: var(--reading-ink);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  #main-wrapper {
+    --reading-title-bg: #f5f7f9;
+    --reading-copy-bg: var(--reading-title-bg);
+    --reading-chip-bg: var(--reading-title-bg);
+  }
+
+  :root[data-bs-theme='dark'] #main-wrapper {
+    --reading-title-bg: #111d25;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-bs-theme]) #main-wrapper {
+      --reading-title-bg: #111d25;
+    }
+  }
+}
