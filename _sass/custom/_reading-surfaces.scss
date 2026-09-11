@@ -45,7 +45,7 @@
   backdrop-filter: none;
 }
 
-/* One compact heading plate, never another plate on its child link or anchor. */
+/* Headings use typography, not separate text plates. */
 #main-wrapper :is(
   h1.dynamic-title,
   .category-folder-title,
@@ -63,7 +63,7 @@
   main > article > .content > h5,
   main > article > .content > h6
 ) {
-  @include text-surface(var(--reading-title-bg), 0.4rem, 0.3em 0.55em);
+  padding: 0;
 
   width: fit-content;
   font-weight: 700;
@@ -234,12 +234,12 @@
   margin-left: auto;
 }
 
-#main-wrapper .post-hero-with-cover :is(h1, .post-desc, .post-hero-fact, .post-hero-tags a) {
+#main-wrapper .post-hero-with-cover :is(.post-desc, .post-hero-fact, .post-hero-tags a) {
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
 
-#main-wrapper #archives :is(.archive-year-label, .archive-date-label) {
+#main-wrapper #archives .archive-date-label {
   @include text-surface(var(--reading-chip-bg), 0.5rem, 0.15em 0);
 
   border: 0 !important;
@@ -293,6 +293,23 @@
 
 #main-wrapper #related-posts {
   --glass-chrome-color: var(--reading-ink);
+}
+
+/* Keep content cards and paragraph plates; strip only title-level surfaces. */
+#main-wrapper :is(h1, h2, h3, h4, h5, h6, .category-folder-title,
+  .category-folder-eyebrow, .archive-year-label, .post-navigation p),
+#main-wrapper :is(h1, h2, h3, h4, h5, h6) > :is(a, span) {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+}
+
+#main-wrapper :is(.category-folder-eyebrow, .archive-year-label, .post-navigation p) {
+  padding: 0;
 }
 
 @media (prefers-reduced-transparency: reduce) {
