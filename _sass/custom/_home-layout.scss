@@ -56,6 +56,12 @@
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 
+  #topbar-wrapper {
+    width: 100%;
+    max-width: 64rem;
+    margin-inline: auto;
+  }
+
   .site-content-row,
   .site-tail-row {
     display: grid;
