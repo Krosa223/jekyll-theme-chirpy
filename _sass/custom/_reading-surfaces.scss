@@ -374,6 +374,35 @@
   &.prompt-danger { --format-tint: var(--prompt-danger-bg); }
 }
 
+#main-wrapper #toc-wrapper {
+  padding: 1rem !important;
+  background: var(--glass-card-bg);
+  border: 1px solid var(--glass-card-border);
+  border-radius: 8px;
+  box-shadow: var(--glass-card-shadow);
+  -webkit-backdrop-filter: blur(14px) saturate(118%);
+  backdrop-filter: blur(14px) saturate(118%);
+  color: var(--glass-text-color);
+  max-height: calc(100vh - 5rem);
+
+  > .panel-heading {
+    padding-left: 0 !important;
+    color: var(--glass-heading-color) !important;
+  }
+
+  > * { border-left: 0; }
+
+  #toc a {
+    color: var(--glass-text-color) !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  #toc .is-active-link {
+    color: var(--toc-highlight) !important;
+  }
+}
+
 @media (prefers-reduced-transparency: reduce) {
   #main-wrapper {
     --reading-title-bg: #f5f7f9;
