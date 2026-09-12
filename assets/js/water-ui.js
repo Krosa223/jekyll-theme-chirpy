@@ -28,6 +28,94 @@
   var lastPointerX = Number.NaN;
   var lastPointerY = Number.NaN;
   var lastPointerTime = 0;
+  var duck = { x: 0, speed: 0, left: 20, right: 20, visible: false };
+  var boat = { x: 0, speed: 0, visible: false };
+
+  function drawBoat() {
+    if (!boat.visible) return;
+    var slope = (surfaceAt(boat.x + 12) - surfaceAt(boat.x - 12)) / 24;
+    context.save();
+    context.translate(boat.x, height * 0.62 + surfaceAt(boat.x));
+    context.rotate(clamp(Math.atan(slope), -0.24, 0.24));
+    context.fillStyle = 'rgba(32, 127, 149, 0.2)';
+    context.beginPath();
+    context.ellipse(0, 3, 16, 2, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#a76a3e';
+    context.beginPath();
+    context.moveTo(-16, -3);
+    context.lineTo(16, -3);
+    context.lineTo(10, 3);
+    context.lineTo(-10, 3);
+    context.closePath();
+    context.fill();
+    context.strokeStyle = '#70472e';
+    context.lineWidth = 1.2;
+    context.beginPath();
+    context.moveTo(-14, -2);
+    context.lineTo(14, -2);
+    context.moveTo(-1, -3);
+    context.lineTo(-1, -24);
+    context.stroke();
+    context.fillStyle = '#fff5df';
+    context.beginPath();
+    context.moveTo(1, -23);
+    context.quadraticCurveTo(6, -15, 13, -6);
+    context.lineTo(1, -6);
+    context.closePath();
+    context.fill();
+    context.fillStyle = '#d1e5e5';
+    context.beginPath();
+    context.moveTo(-3, -21);
+    context.lineTo(-13, -6);
+    context.lineTo(-3, -6);
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+
+  function surfaceAt(x) {
+    var p = clamp(x / Math.max(1, width) * (pointCount - 1), 0, pointCount - 1);
+    var i = Math.floor(p);
+    return displacement[i] * (1 - (p - i)) +
+      displacement[Math.min(i + 1, pointCount - 1)] * (p - i);
+  }
+
+  function drawDuck() {
+    if (!duck.visible) return;
+    var slope = (surfaceAt(duck.x + 8) - surfaceAt(duck.x - 8)) / 16;
+    context.save();
+    context.translate(duck.x, height * 0.62 + surfaceAt(duck.x));
+    context.rotate(clamp(Math.atan(slope), -0.3, 0.3));
+    context.fillStyle = 'rgba(32, 127, 149, 0.22)';
+    context.beginPath();
+    context.ellipse(0, 2, 12, 2.5, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#f5cb57';
+    context.beginPath();
+    context.ellipse(-1, -4, 10, 6, -0.12, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#ffe38a';
+    context.beginPath();
+    context.arc(6, -12, 5.5, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#e89442';
+    context.beginPath();
+    context.moveTo(10, -12);
+    context.lineTo(16, -10);
+    context.lineTo(10, -8.5);
+    context.fill();
+    context.fillStyle = '#34332c';
+    context.beginPath();
+    context.arc(7.8, -13, 0.95, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = '#dcae42';
+    context.lineWidth = 1;
+    context.beginPath();
+    context.ellipse(-3, -5, 4.5, 2.5, -0.2, 0.1, Math.PI);
+    context.stroke();
+    context.restore();
+  }
 
   function clamp(value, minimum, maximum) {
     return Math.max(minimum, Math.min(maximum, value));
@@ -96,6 +184,8 @@
     context.lineWidth = 1;
     context.strokeStyle = 'rgba(92, 204, 226, 0.72)';
     context.stroke();
+    drawDuck();
+    drawBoat();
   }
 
   function stepWater() {
@@ -123,9 +213,36 @@
       );
     }
 
+    if (duck.visible) {
+      var slope = (surfaceAt(duck.x + 8) - surfaceAt(duck.x - 8)) / 16;
+      duck.speed = clamp((duck.speed - slope * 0.5) * 0.96, -2, 2);
+      duck.x += duck.speed;
+      if (duck.x < duck.left || duck.x > duck.right) {
+        duck.x = clamp(duck.x, duck.left, duck.right);
+        duck.speed *= -0.35;
+      }
+    }
+    if (boat.visible) {
+      var boatSlope = (surfaceAt(boat.x + 12) - surfaceAt(boat.x - 12)) / 24;
+      boat.speed = clamp((boat.speed - boatSlope * 0.32) * 0.975, -1.5, 1.5);
+      boat.x += boat.speed;
+      if (boat.x < duck.left || boat.x > duck.right) {
+        boat.x = clamp(boat.x, duck.left, duck.right);
+        boat.speed *= -0.3;
+      }
+      // Resolve contact without allowing the two floating objects to overlap.
+      if (Math.abs(boat.x - duck.x) < 36) {
+        var sign = boat.x >= duck.x ? 1 : -1;
+        var middle = clamp((boat.x + duck.x) / 2, duck.left + 18, duck.right - 18);
+        boat.x = middle + sign * 18;
+        duck.x = middle - sign * 18;
+        boat.speed = sign * Math.abs(boat.speed) * 0.4;
+        duck.speed = -sign * Math.abs(duck.speed) * 0.4;
+      }
+    }
     drawWater();
 
-    if (energy > 0.018 && !motionQuery.matches) {
+    if (Math.max(energy, Math.abs(duck.speed), Math.abs(boat.speed)) > 0.018 && !motionQuery.matches) {
       animationFrame = window.requestAnimationFrame(stepWater);
       return;
     }
@@ -182,6 +299,10 @@
 
       velocity[clamp(center - 5, 0, pointCount - 1)] -= strength * 0.28;
       velocity[clamp(center + 5, 0, pointCount - 1)] -= strength * 0.28;
+      var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 150);
+      duck.speed = clamp(duck.speed + clamp(deltaX / elapsed, -2, 2) * influence * proximity, -2, 2);
+      var boatInfluence = Math.max(0, 1 - Math.abs(pointerX - boat.x) / 150);
+      boat.speed = clamp(boat.speed + clamp(deltaX / elapsed, -2, 2) * boatInfluence * proximity * 0.65, -1.5, 1.5);
       startWater();
     }
 
@@ -199,6 +320,8 @@
     var nextHeight = Math.max(1, Math.round(bounds.height));
     var nextCount = clamp(Math.round(nextWidth / 16), 48, 96);
 
+    var fraction = width ? duck.x / width : 0.45;
+    var boatFraction = width ? boat.x / width : 0.65;
     width = nextWidth;
     height = nextHeight;
     canvas.width = Math.round(width * pixelRatio);
@@ -208,6 +331,25 @@
     context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
     if (pointCount !== nextCount) createPoints(nextCount);
+    duck.left = 24;
+    duck.right = width - 24;
+    var breadcrumb = wrapper.querySelector('#breadcrumb');
+    var search = wrapper.querySelector('#search-wrapper');
+    if (breadcrumb && breadcrumb.getBoundingClientRect().width) {
+      duck.left = Math.max(duck.left, breadcrumb.getBoundingClientRect().right - bounds.left + 24);
+    }
+    if (search && search.getBoundingClientRect().width) {
+      duck.right = Math.min(duck.right, search.getBoundingClientRect().left - bounds.left - 24);
+    }
+    duck.visible = width >= 600 && duck.right - duck.left >= 60;
+    duck.x = duck.visible ? clamp(fraction * width, duck.left, duck.right) : width / 2;
+    duck.speed = 0;
+    boat.visible = duck.visible && duck.right - duck.left >= 130 && height >= 44;
+    boat.x = boat.visible ? clamp(boatFraction * width, duck.left, duck.right) : width / 2;
+    if (boat.visible && Math.abs(boat.x - duck.x) < 36) {
+      boat.x = duck.x + 40 <= duck.right ? duck.x + 40 : duck.x - 40;
+    }
+    boat.speed = 0;
     resetPointer();
     drawWater();
   }

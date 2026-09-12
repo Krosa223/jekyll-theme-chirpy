@@ -1,3 +1,24 @@
+@use '../themes/light' as code-light;
+@use '../themes/dark' as code-dark;
+
+#main-wrapper .post-article [data-code-theme='light'],
+#main-wrapper .post-article [data-format-theme='light'] {
+  @include code-light.styles;
+  color-scheme: light;
+}
+
+#main-wrapper .post-article [data-code-theme='dark'],
+#main-wrapper .post-article [data-format-theme='dark'] {
+  @include code-dark.styles;
+}
+
+#main-wrapper .post-article [data-code-theme] {
+  color: var(--code-color);
+  background: var(--highlight-bg-color);
+  --code-header-text-color: var(--code-color);
+  --code-header-icon-color: var(--code-color);
+}
+
 /* Text surfaces share the existing panel blur; no extra full-card glass layer. */
 @mixin dark-reading-surfaces {
   --reading-title-bg: rgb(8 17 25 / 70%);
@@ -81,7 +102,7 @@
   main > article > .content > p:not(:has(img, picture, video, audio, iframe)),
   main > article > .content > ul:not(.list-unstyled),
   main > article > .content > ol,
-  main > article > .content > blockquote,
+  main > article > .content > blockquote:not(.prompt-tip, .prompt-info, .prompt-warning, .prompt-danger),
   .post-hero-content > .post-desc,
   #related-posts .card-body > .text-muted,
   #search-results .content > p
@@ -326,6 +347,31 @@
 
 #main-wrapper :is(.category-folder-eyebrow, .archive-year-label, .post-navigation p) {
   padding: 0;
+}
+
+#main-wrapper .post-article :is(.table-wrapper, details)[data-format-theme] {
+  background: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  border: 1px solid var(--main-border-color);
+  border-radius: 8px;
+}
+
+#main-wrapper .post-article details[data-format-theme] {
+  padding: 1rem;
+  margin-block: 1rem;
+  summary { cursor: pointer; font-weight: 600; }
+}
+
+#main-wrapper .post-article blockquote[data-format-theme] {
+  color: var(--prompt-text-color) !important;
+  background-color: var(--card-bg);
+  background-image: linear-gradient(var(--format-tint), var(--format-tint));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  &.prompt-tip { --format-tint: var(--prompt-tip-bg); }
+  &.prompt-info { --format-tint: var(--prompt-info-bg); }
+  &.prompt-warning { --format-tint: var(--prompt-warning-bg); }
+  &.prompt-danger { --format-tint: var(--prompt-danger-bg); }
 }
 
 @media (prefers-reduced-transparency: reduce) {

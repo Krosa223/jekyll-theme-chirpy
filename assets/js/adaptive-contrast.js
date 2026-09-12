@@ -8,6 +8,7 @@
   if (!ctx) return;
   let cacheUrl = '', cached = null, timer, revision = 0;
   const states = new WeakMap();
+  const specialSelector = '.table-wrapper, details, blockquote.prompt-tip, blockquote.prompt-info, blockquote.prompt-warning, blockquote.prompt-danger, kbd';
   const color = value => {
     const n = value.match(/[\d.]+/g);
     return n && n.length >= 3 ? [+n[0], +n[1], +n[2], n.length > 3 ? +n[3] : 1] : [0, 0, 0, 0];
@@ -45,16 +46,21 @@
     const version = ++revision;
     const home = document.querySelector('.home-layout');
     const wrapper = document.getElementById('main-wrapper');
-    if (!home || !wrapper) return;
+    if (!wrapper) return;
+    const blocks = wrapper.querySelectorAll('.post-article div.highlighter-rouge, .post-article figure.highlight');
+    const article = wrapper.querySelector('.post-article .content');
+    const specials = article ? [...article.querySelectorAll(specialSelector)].filter(el => !el.closest('.highlighter-rouge, .highlight')) : [];
+    const targets = [...(home ? home.querySelectorAll('.home-topics, .home-post-card .post-preview, #topbar-wrapper, footer') : []), ...blocks, ...specials];
+    if (!targets.length) return;
     const bg = getComputedStyle(wrapper, '::before');
     const match = bg.backgroundImage.match(/url\(["']?(.*?)["']?\)/);
-    if (!match) return;
-    const image = await imageData(new URL(match[1], document.baseURI).href);
-    if (version !== revision || !home.isConnected) return;
-    const targets = home.querySelectorAll('.home-topics, .home-post-card .post-preview, #topbar-wrapper, footer');
+    const image = match ? await imageData(new URL(match[1], document.baseURI).href) : null;
+    if (version !== revision || !wrapper.isConnected) return;
     if (!image) {
       targets.forEach(el => {
         el.removeAttribute('data-auto-ink');
+        el.removeAttribute('data-code-theme');
+        el.removeAttribute('data-format-theme');
         el.style.removeProperty('--auto-primary');
         el.style.removeProperty('--auto-secondary');
         states.delete(el);
@@ -70,10 +76,12 @@
     const y0 = top + offset(position[1] || '50%', height - image.height * scale);
     const wash = color(getComputedStyle(wrapper, '::after').backgroundColor);
     targets.forEach(el => {
+      const isCode = el.matches('div.highlighter-rouge, figure.highlight');
+      const isFormat = specials.includes(el);
       const box = el.getBoundingClientRect();
       if (!box.width || box.bottom < 0 || box.top > innerHeight) return;
       const layers = [];
-      for (let node = el; node && node !== wrapper; node = node.parentElement) {
+      for (let node = isCode || isFormat ? null : el; node && node !== wrapper; node = node.parentElement) {
         layers.unshift(color(getComputedStyle(node).backgroundColor));
       }
       // Local low-resolution samples approximate the frosted backdrop, not the whole wallpaper.
@@ -89,6 +97,15 @@
         layers.forEach(layer => { rgb = blend(rgb, layer); });
         samples.push(luminance(rgb));
         rgb.forEach((value, i) => { average[i] += value / 45; });
+      }
+      if (isCode || isFormat) {
+        // Sample wallpaper behind the block, excluding its own opaque fill.
+        const brightness = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+        const key = isCode ? 'codeTheme' : 'formatTheme';
+        const previous = el.dataset[key];
+        const threshold = previous === 'dark' ? .28 : previous === 'light' ? .18 : .23;
+        el.dataset[key] = brightness < threshold ? 'dark' : 'light';
+        return;
       }
       const score = ink => samples.map(l => (Math.max(l, ink) + .05) / (Math.min(l, ink) + .05)).sort((a, b) => a - b)[9];
       const dark = score(luminance([28, 30, 33]));
@@ -132,7 +149,7 @@
   new MutationObserver(schedule).observe(root, { attributes: true, attributeFilter: ['data-wallpaper', 'data-mode', 'data-bs-theme'] });
   new MutationObserver(records => {
     if (records.some(record => [...record.addedNodes].some(node => node.nodeType === 1 &&
-      (node.matches('#swup, .home-layout') || node.querySelector('.home-reading'))))) schedule();
+      (node.matches('#swup, .home-layout, .post-article, div.highlighter-rouge') || node.querySelector('.home-reading, .post-article'))))) schedule();
   }).observe(document.body, { childList: true, subtree: true });
   schedule();
 })();
