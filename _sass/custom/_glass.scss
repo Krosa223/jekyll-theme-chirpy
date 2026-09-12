@@ -507,6 +507,11 @@ html .glightbox-closing .gclose {
   text-shadow: none;
 }
 
+#main-wrapper main > article.post-article {
+  -webkit-backdrop-filter: blur(28px) saturate(110%);
+  backdrop-filter: blur(28px) saturate(110%);
+}
+
 .post-article.post-article :is(h1, h2, h3, h4, h5, h6) {
   text-shadow: none;
 }
