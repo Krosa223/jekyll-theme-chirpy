@@ -93,17 +93,19 @@
         const ix = Math.max(0, Math.min(191, Math.floor((px - x0) / (image.width * scale) * 192)));
         const iy = Math.max(0, Math.min(191, Math.floor((py - y0) / (image.height * scale) * 192)));
         const index = (iy * 192 + ix) * 4;
-        let rgb = blend(Array.from(image.pixels.slice(index, index + 3)), wash);
+        const pixel = Array.from(image.pixels.slice(index, index + 3));
+        let rgb = isCode || isFormat ? pixel : blend(pixel, wash);
         layers.forEach(layer => { rgb = blend(rgb, layer); });
         samples.push(luminance(rgb));
         rgb.forEach((value, i) => { average[i] += value / 45; });
       }
       if (isCode || isFormat) {
         // Sample wallpaper behind the block, excluding its own opaque fill.
-        const brightness = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+        // The median prevents small sunlit patches from washing out a darker scene.
+        const brightness = [...samples].sort((a, b) => a - b)[Math.floor(samples.length / 2)];
         const key = isCode ? 'codeTheme' : 'formatTheme';
         const previous = el.dataset[key];
-        const threshold = previous === 'dark' ? .28 : previous === 'light' ? .18 : .23;
+        const threshold = previous === 'dark' ? .55 : previous === 'light' ? .40 : .47;
         el.dataset[key] = brightness < threshold ? 'dark' : 'light';
         return;
       }
