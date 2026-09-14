@@ -8,6 +8,41 @@
   if (!ctx) return;
   let cacheUrl = '', cached = null, timer, revision = 0;
   const states = new WeakMap();
+  const themeCache = new Map();
+  let themeRevision = 0;
+  let activeThemeUrl = '';
+  async function updateFormatTheme() {
+    const wrapper = document.getElementById('main-wrapper');
+    if (!wrapper) return;
+    const match = getComputedStyle(wrapper, '::before').backgroundImage.match(/url\(["']?(.*?)["']?\)/);
+    if (!match) return;
+    const url = new URL(match[1], document.baseURI).href;
+    if (url === activeThemeUrl) return;
+    const version = ++themeRevision;
+    const wallpaper = root.dataset.wallpaper || url;
+    const key = 'krosa-format-theme-v2:' + wallpaper;
+    let theme = themeCache.get(url);
+    try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (!theme && saved?.url === url && ['dark', 'light'].includes(saved.theme)) theme = saved.theme;
+    } catch {}
+    if (!theme) {
+      const image = await imageData(url);
+      if (version !== themeRevision) return;
+      if (!image) return;
+      const samples = [];
+      for (let i = 0; i < image.pixels.length; i += 16) {
+        samples.push(luminance([image.pixels[i], image.pixels[i + 1], image.pixels[i + 2]]));
+      }
+      samples.sort((a, b) => a - b);
+      theme = samples[Math.floor(samples.length / 2)] < .47 ? 'dark' : 'light';
+    }
+    if (version !== themeRevision) return;
+    themeCache.set(url, theme);
+    activeThemeUrl = url;
+    root.dataset.formatTheme = theme;
+    try { localStorage.setItem(key, JSON.stringify({ url, theme })); } catch {}
+  }
   const specialSelector = '.table-wrapper, details, blockquote.prompt-tip, blockquote.prompt-info, blockquote.prompt-warning, blockquote.prompt-danger, kbd';
   const color = value => {
     const n = value.match(/[\d.]+/g);
@@ -47,10 +82,7 @@
     const home = document.querySelector('.home-layout');
     const wrapper = document.getElementById('main-wrapper');
     if (!wrapper) return;
-    const blocks = wrapper.querySelectorAll('.post-article div.highlighter-rouge, .post-article figure.highlight');
-    const article = wrapper.querySelector('.post-article .content');
-    const specials = article ? [...article.querySelectorAll(specialSelector)].filter(el => !el.closest('.highlighter-rouge, .highlight')) : [];
-    const targets = [...(home ? home.querySelectorAll('.home-topics, .home-post-card .post-preview, #topbar-wrapper, footer') : []), ...blocks, ...specials];
+    const targets = home ? [...home.querySelectorAll('.home-topics, .home-post-card .post-preview, #topbar-wrapper, footer')] : [];
     if (!targets.length) return;
     const bg = getComputedStyle(wrapper, '::before');
     const match = bg.backgroundImage.match(/url\(["']?(.*?)["']?\)/);
@@ -76,12 +108,10 @@
     const y0 = top + offset(position[1] || '50%', height - image.height * scale);
     const wash = color(getComputedStyle(wrapper, '::after').backgroundColor);
     targets.forEach(el => {
-      const isCode = el.matches('div.highlighter-rouge, figure.highlight');
-      const isFormat = specials.includes(el);
       const box = el.getBoundingClientRect();
       if (!box.width || box.bottom < 0 || box.top > innerHeight) return;
       const layers = [];
-      for (let node = isCode || isFormat ? null : el; node && node !== wrapper; node = node.parentElement) {
+      for (let node = el; node && node !== wrapper; node = node.parentElement) {
         layers.unshift(color(getComputedStyle(node).backgroundColor));
       }
       // Local low-resolution samples approximate the frosted backdrop, not the whole wallpaper.
@@ -94,20 +124,10 @@
         const iy = Math.max(0, Math.min(191, Math.floor((py - y0) / (image.height * scale) * 192)));
         const index = (iy * 192 + ix) * 4;
         const pixel = Array.from(image.pixels.slice(index, index + 3));
-        let rgb = isCode || isFormat ? pixel : blend(pixel, wash);
+        let rgb = blend(pixel, wash);
         layers.forEach(layer => { rgb = blend(rgb, layer); });
         samples.push(luminance(rgb));
         rgb.forEach((value, i) => { average[i] += value / 45; });
-      }
-      if (isCode || isFormat) {
-        // Sample wallpaper behind the block, excluding its own opaque fill.
-        // The median prevents small sunlit patches from washing out a darker scene.
-        const brightness = [...samples].sort((a, b) => a - b)[Math.floor(samples.length / 2)];
-        const key = isCode ? 'codeTheme' : 'formatTheme';
-        const previous = el.dataset[key];
-        const threshold = previous === 'dark' ? .55 : previous === 'light' ? .40 : .47;
-        el.dataset[key] = brightness < threshold ? 'dark' : 'light';
-        return;
       }
       const score = ink => samples.map(l => (Math.max(l, ink) + .05) / (Math.min(l, ink) + .05)).sort((a, b) => a - b)[9];
       const dark = score(luminance([28, 30, 33]));
@@ -142,16 +162,17 @@
     clearTimeout(timer);
     timer = setTimeout(update, 100);
   }
-  window.krosaAdaptiveContrast = { refresh: schedule };
+  function refresh() { updateFormatTheme(); schedule(); }
+  window.krosaAdaptiveContrast = { refresh };
   addEventListener('resize', schedule, { passive: true });
-  addEventListener('scroll', schedule, { passive: true });
-  addEventListener('pageshow', schedule);
+  addEventListener('scroll', () => { if (document.querySelector('.home-layout')) schedule(); }, { passive: true });
+  addEventListener('pageshow', refresh);
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule);
   matchMedia('(prefers-contrast: more)').addEventListener('change', schedule);
-  new MutationObserver(schedule).observe(root, { attributes: true, attributeFilter: ['data-wallpaper', 'data-mode', 'data-bs-theme'] });
+  new MutationObserver(refresh).observe(root, { attributes: true, attributeFilter: ['data-wallpaper', 'data-mode', 'data-bs-theme'] });
   new MutationObserver(records => {
     if (records.some(record => [...record.addedNodes].some(node => node.nodeType === 1 &&
       (node.matches('#swup, .home-layout, .post-article, div.highlighter-rouge') || node.querySelector('.home-reading, .post-article'))))) schedule();
   }).observe(document.body, { childList: true, subtree: true });
-  schedule();
+  refresh();
 })();

@@ -8,6 +8,17 @@
     content="width=device-width, user-scalable=no, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
   >
   <script>
+    // Image links are lightbox controls, never standalone-page navigation.
+    document.addEventListener(
+      'click',
+      function (event) {
+        var link = event.target.closest && event.target.closest('a.popup');
+        if (link) event.preventDefault();
+      },
+      true
+    );
+  </script>
+  <script>
     (function () {
       var wallpaperStorageKey = 'krosa-wallpaper';
       var modeStorageKey = 'krosa-wallpaper-mode';
@@ -87,6 +98,12 @@
 
       document.documentElement.setAttribute('data-wallpaper-mode', mode);
       document.documentElement.setAttribute('data-wallpaper', selected);
+      try {
+        var formatTheme = JSON.parse(readPreference('krosa-format-theme-v2:' + selected));
+        if (formatTheme && (formatTheme.theme === 'dark' || formatTheme.theme === 'light')) {
+          document.documentElement.setAttribute('data-format-theme', formatTheme.theme);
+        }
+      } catch (error) {}
     })();
   </script>
 

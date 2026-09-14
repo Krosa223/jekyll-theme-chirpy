@@ -1,22 +1,27 @@
 @use '../themes/light' as code-light;
 @use '../themes/dark' as code-dark;
 
-#main-wrapper .post-article [data-code-theme='light'],
-#main-wrapper .post-article [data-format-theme='light'] {
+html[data-format-theme='light'] #main-wrapper .post-article :is(div.highlighter-rouge, figure.highlight, .table-wrapper, details, blockquote[class*='prompt-'], kbd) {
   @include code-light.styles;
   color-scheme: light;
 }
 
-#main-wrapper .post-article [data-code-theme='dark'],
-#main-wrapper .post-article [data-format-theme='dark'] {
+html[data-format-theme='dark'] #main-wrapper .post-article :is(div.highlighter-rouge, figure.highlight, .table-wrapper, details, blockquote[class*='prompt-'], kbd) {
   @include code-dark.styles;
 }
 
-#main-wrapper .post-article [data-code-theme] {
+#main-wrapper .post-article :is(div.highlighter-rouge, figure.highlight) {
   color: var(--code-color);
   background: var(--highlight-bg-color);
   --code-header-text-color: var(--code-color);
   --code-header-icon-color: var(--code-color);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-format-theme] #main-wrapper .post-article :is(div.highlighter-rouge, figure.highlight, .table-wrapper, details, blockquote[class*='prompt-'], kbd),
+  html[data-format-theme] #main-wrapper .post-article :is(div.highlighter-rouge, figure.highlight, .table-wrapper, details, blockquote[class*='prompt-']) :is(.highlight, pre, code, span, th, td, tr, button, i, summary) {
+    transition: background-color 280ms ease, color 280ms ease, border-color 280ms ease;
+  }
 }
 
 /* Text surfaces share the existing panel blur; no extra full-card glass layer. */
@@ -349,20 +354,20 @@
   padding: 0;
 }
 
-#main-wrapper .post-article :is(.table-wrapper, details)[data-format-theme] {
+#main-wrapper .post-article :is(.table-wrapper, details) {
   background: var(--card-bg) !important;
   color: var(--text-color) !important;
   border: 1px solid var(--main-border-color);
   border-radius: 8px;
 }
 
-#main-wrapper .post-article details[data-format-theme] {
+#main-wrapper .post-article details {
   padding: 1rem;
   margin-block: 1rem;
   summary { cursor: pointer; font-weight: 600; }
 }
 
-#main-wrapper .post-article blockquote[data-format-theme] {
+#main-wrapper .post-article blockquote:is(.prompt-tip, .prompt-info, .prompt-warning, .prompt-danger) {
   color: var(--prompt-text-color) !important;
   background-color: var(--card-bg);
   background-image: linear-gradient(var(--format-tint), var(--format-tint));
