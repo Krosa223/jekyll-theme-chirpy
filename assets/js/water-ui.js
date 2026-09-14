@@ -447,65 +447,79 @@
     var pointerY = clamp(event.clientY - bounds.top, 0, bounds.height);
     var now = window.performance.now();
 
-    // Do not inject a new impulse every few milliseconds. Sampling a little
-    // slower and filtering pointer velocity avoids the "one touch = tsunami"
-    // feeling while keeping the surface responsive.
-    if (!Number.isNaN(lastPointerX) && now - lastPointerTime >= 22) {
-      var deltaX = pointerX - lastPointerX;
-      var deltaY = pointerY - lastPointerY;
-      var elapsed = Math.max(22, now - lastPointerTime);
-      var rawVX = deltaX / elapsed;
-      var rawVY = deltaY / elapsed;
-
-      pointerVelocityX = pointerVelocityX * 0.72 + rawVX * 0.28;
-      pointerVelocityY = pointerVelocityY * 0.72 + rawVY * 0.28;
-
-      var waterline = height * 0.62;
-      var interactionRadius = Math.max(9, height * 0.24);
-      var distanceToSurface = Math.abs(pointerY - waterline);
-      var proximity = 1 - clamp(distanceToSurface / interactionRadius, 0, 1);
-
-      // Smoothstep makes the effect fade naturally as the pointer leaves the
-      // waterline. Movement elsewhere in the topbar barely affects the water.
-      proximity = proximity * proximity * (3 - 2 * proximity);
-
-      var normalSpeed = Math.abs(pointerVelocityY) + Math.abs(pointerVelocityX) * 0.10;
-
-      if (proximity > 0.01 && normalSpeed > 0.018) {
-        var direction = Math.abs(pointerVelocityY) > 0.025
-          ? Math.sign(pointerVelocityY)
-          : 1;
-        var strength = clamp(normalSpeed * 0.52, 0, 0.52) * proximity;
-        var center = Math.round((pointerX / Math.max(1, width)) * (pointCount - 1));
-
-        // A compact Gaussian-like impulse creates one small ring that spreads
-        // out, instead of kicking seven points almost equally.
-        for (var offset = -4; offset <= 4; offset += 1) {
-          var point = clamp(center + offset, 0, pointCount - 1);
-          var weight = Math.exp(-(offset * offset) / 5.2);
-          velocity[point] += strength * weight * direction;
-        }
-
-        // Horizontal motion can gently nudge floating objects, but much less
-        // than before.
-        var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 110);
-        duck.speed = clamp(
-          duck.speed + pointerVelocityX * influence * proximity * 0.10,
-          -0.42,
-          0.42
-        );
-
-        var boatInfluence = Math.max(0, 1 - Math.abs(pointerX - boat.x) / 130);
-        boat.speed = clamp(
-          boat.speed + pointerVelocityX * boatInfluence * proximity * 0.07,
-          -0.32,
-          0.32
-        );
-
-        startWater();
-      }
+    // First pointer event only establishes the reference sample.
+    if (Number.isNaN(lastPointerX)) {
+      lastPointerX = pointerX;
+      lastPointerY = pointerY;
+      lastPointerTime = now;
+      return;
     }
 
+    // Sample at roughly one display frame. Important: do NOT overwrite the
+    // reference point when we skip a sample, otherwise 60/120 Hz pointermove
+    // events can keep resetting the timer and the water never receives input.
+    var elapsed = now - lastPointerTime;
+    if (elapsed < 14) return;
+
+    var deltaX = pointerX - lastPointerX;
+    var deltaY = pointerY - lastPointerY;
+    var rawVX = deltaX / Math.max(14, elapsed);
+    var rawVY = deltaY / Math.max(14, elapsed);
+
+    // Moderate low-pass filtering: responsive, but not jittery.
+    pointerVelocityX = pointerVelocityX * 0.58 + rawVX * 0.42;
+    pointerVelocityY = pointerVelocityY * 0.58 + rawVY * 0.42;
+
+    var waterline = height * 0.62 + surfaceAt(pointerX);
+    var interactionRadius = Math.max(13, height * 0.32);
+    var distanceToSurface = Math.abs(pointerY - waterline);
+    var proximity = 1 - clamp(distanceToSurface / interactionRadius, 0, 1);
+
+    // Smooth fade near the edge of the interaction band.
+    proximity = proximity * proximity * (3 - 2 * proximity);
+
+    // Vertical movement couples most strongly to the surface; horizontal
+    // movement still creates a small wake so simply passing over the water is visible.
+    var normalSpeed = Math.abs(pointerVelocityY) + Math.abs(pointerVelocityX) * 0.16;
+
+    if (proximity > 0.006 && normalSpeed > 0.008) {
+      var direction = Math.abs(pointerVelocityY) > 0.015
+        ? Math.sign(pointerVelocityY)
+        : 1;
+      var strength = clamp(normalSpeed * 0.44, 0, 0.34) * proximity;
+      var center = Math.round((pointerX / Math.max(1, width)) * (pointCount - 1));
+
+      // Localized impulse: visible at the cursor, but without the large
+      // seven-point shove from the original version.
+      for (var offset = -3; offset <= 3; offset += 1) {
+        var point = clamp(center + offset, 0, pointCount - 1);
+        var weight = Math.exp(-(offset * offset) / 3.8);
+        velocity[point] += strength * weight * direction;
+      }
+
+      // Tiny opposite lobes make the disturbance read more like a ripple
+      // than a whole patch of water being lifted together.
+      velocity[clamp(center - 5, 0, pointCount - 1)] -= strength * 0.10 * direction;
+      velocity[clamp(center + 5, 0, pointCount - 1)] -= strength * 0.10 * direction;
+
+      var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 125);
+      duck.speed = clamp(
+        duck.speed + pointerVelocityX * influence * proximity * 0.14,
+        -0.50,
+        0.50
+      );
+
+      var boatInfluence = Math.max(0, 1 - Math.abs(pointerX - boat.x) / 145);
+      boat.speed = clamp(
+        boat.speed + pointerVelocityX * boatInfluence * proximity * 0.10,
+        -0.38,
+        0.38
+      );
+
+      startWater();
+    }
+
+    // Update the reference only after a real sample was processed.
     lastPointerX = pointerX;
     lastPointerY = pointerY;
     lastPointerTime = now;
