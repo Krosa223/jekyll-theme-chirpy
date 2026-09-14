@@ -792,6 +792,37 @@ main > article:not([data-toc]) > .content,
   backdrop-filter: blur(8px) saturate(115%);
 }
 
+/* Popular tags: lighter frosted pills, matching the cleaner light style */
+#panel-wrapper .access .post-tag {
+  color: #355767 !important;
+  border: 1px solid rgb(255 255 255 / 78%) !important;
+  background: rgb(255 255 255 / 78%) !important;
+  box-shadow:
+    0 2px 7px rgb(35 62 76 / 8%),
+    inset 0 1px 0 rgb(255 255 255 / 92%) !important;
+  text-shadow: none !important;
+  -webkit-backdrop-filter: blur(10px) saturate(108%);
+  backdrop-filter: blur(10px) saturate(108%);
+}
+
+#panel-wrapper .access .post-tag:hover {
+  color: #234758 !important;
+  border-color: rgb(255 255 255 / 92%) !important;
+  background: rgb(255 255 255 / 90%) !important;
+  box-shadow:
+    0 3px 9px rgb(35 62 76 / 10%),
+    inset 0 1px 0 rgb(255 255 255 / 96%) !important;
+}
+
+[data-bs-theme='dark'] #panel-wrapper .access .post-tag {
+  color: var(--glass-text-color) !important;
+  border-color: rgb(255 255 255 / 16%) !important;
+  background: rgb(28 37 49 / 72%) !important;
+  box-shadow:
+    0 2px 7px rgb(0 0 0 / 16%),
+    inset 0 1px 0 rgb(255 255 255 / 10%) !important;
+}
+
 #panel-wrapper .access > section {
   padding: 1rem;
 }

@@ -28,6 +28,8 @@
   var lastPointerX = Number.NaN;
   var lastPointerY = Number.NaN;
   var lastPointerTime = 0;
+  var pointerVelocityX = 0;
+  var pointerVelocityY = 0;
   var waterTime = 0;
   var lastFrameTime = 0;
   var duck = {
@@ -53,9 +55,9 @@
     // The sum is intentionally subtle so the topbar still feels like glass,
     // not like a cartoon ocean.
     return (
-      Math.sin(x * 0.024 - waterTime * 1.35) * 0.72 +
-      Math.sin(x * 0.051 + waterTime * 0.92 + 1.4) * 0.38 +
-      Math.sin(x * 0.011 - waterTime * 0.48 + 2.2) * 0.26
+      Math.sin(x * 0.020 - waterTime * 0.72) * 0.42 +
+      Math.sin(x * 0.043 + waterTime * 0.46 + 1.4) * 0.20 +
+      Math.sin(x * 0.010 - waterTime * 0.24 + 2.2) * 0.12
     );
   }
 
@@ -177,6 +179,8 @@
     lastPointerX = Number.NaN;
     lastPointerY = Number.NaN;
     lastPointerTime = 0;
+    pointerVelocityX = 0;
+    pointerVelocityY = 0;
   }
 
   function createPoints(nextCount) {
@@ -272,23 +276,34 @@
     context.save();
     context.lineCap = 'round';
 
+    // A soft highlight and a very thin blue edge look closer to light on
+    // real water than the old moving dashed line.
     traceSurface();
-    context.lineWidth = 2.6;
-    context.strokeStyle = 'rgba(255, 255, 255, 0.23)';
+    context.lineWidth = 1.8;
+    context.strokeStyle = 'rgba(255, 255, 255, 0.18)';
     context.stroke();
 
-    context.setLineDash([24, 18]);
-    context.lineDashOffset = -waterTime * 18;
     traceSurface();
-    context.lineWidth = 0.9;
-    context.strokeStyle = 'rgba(224, 252, 255, 0.42)';
+    context.lineWidth = 0.65;
+    context.strokeStyle = 'rgba(76, 188, 214, 0.46)';
     context.stroke();
 
-    context.setLineDash([]);
-    traceSurface();
-    context.lineWidth = 0.8;
-    context.strokeStyle = 'rgba(78, 193, 218, 0.58)';
-    context.stroke();
+    // Two faint specular streaks drift independently below the surface.
+    var waterline = height * 0.62;
+    for (var i = 0; i < 2; i += 1) {
+      var span = 34 + i * 18;
+      var cycle = width + span * 2;
+      var center = ((waterTime * (12 + i * 5) + i * width * 0.41) % cycle) - span;
+      var y = waterline + 4.5 + i * 4 + Math.sin(waterTime * 0.55 + i) * 0.35;
+
+      context.beginPath();
+      context.moveTo(center - span * 0.5, y);
+      context.quadraticCurveTo(center, y - 0.55, center + span * 0.5, y);
+      context.lineWidth = 0.7;
+      context.strokeStyle = 'rgba(236, 253, 255, 0.10)';
+      context.stroke();
+    }
+
     context.restore();
   }
 
@@ -319,9 +334,11 @@
   function stepWater(now) {
     var index;
     var energy = 0;
-    var spring = 0.048;
-    var spread = 0.17;
-    var damping = 0.925;
+    // Tuned for a shallow, calm reservoir: small amplitude, gentle travel
+    // and enough damping that a touch does not turn into a splash.
+    var spring = 0.036;
+    var spread = 0.115;
+    var damping = 0.94;
     var elapsed = lastFrameTime ? clamp(now - lastFrameTime, 0, 48) : 16.67;
 
     lastFrameTime = now;
@@ -430,33 +447,63 @@
     var pointerY = clamp(event.clientY - bounds.top, 0, bounds.height);
     var now = window.performance.now();
 
-    if (!Number.isNaN(lastPointerX) && now - lastPointerTime >= 10) {
+    // Do not inject a new impulse every few milliseconds. Sampling a little
+    // slower and filtering pointer velocity avoids the "one touch = tsunami"
+    // feeling while keeping the surface responsive.
+    if (!Number.isNaN(lastPointerX) && now - lastPointerTime >= 22) {
       var deltaX = pointerX - lastPointerX;
       var deltaY = pointerY - lastPointerY;
-      var elapsed = Math.max(10, now - lastPointerTime);
-      var speed = Math.sqrt(deltaX * deltaX + deltaY * deltaY) / elapsed;
-      var proximity =
-        1 - clamp(Math.abs(pointerY - height * 0.62) / (height * 0.7), 0, 1);
-      var strength = clamp(1.5 + speed * 2.1, 1.5, 6.2);
-      var direction = Math.abs(deltaY) > 0.35 ? Math.sign(deltaY) : 1;
-      var center = Math.round((pointerX / Math.max(1, width)) * (pointCount - 1));
-      var offset;
+      var elapsed = Math.max(22, now - lastPointerTime);
+      var rawVX = deltaX / elapsed;
+      var rawVY = deltaY / elapsed;
 
-      strength *= 0.45 + proximity * 0.55;
+      pointerVelocityX = pointerVelocityX * 0.72 + rawVX * 0.28;
+      pointerVelocityY = pointerVelocityY * 0.72 + rawVY * 0.28;
 
-      for (offset = -3; offset <= 3; offset += 1) {
-        var point = clamp(center + offset, 0, pointCount - 1);
-        var weight = 1 - Math.abs(offset) / 4;
-        velocity[point] += strength * weight * direction;
+      var waterline = height * 0.62;
+      var interactionRadius = Math.max(9, height * 0.24);
+      var distanceToSurface = Math.abs(pointerY - waterline);
+      var proximity = 1 - clamp(distanceToSurface / interactionRadius, 0, 1);
+
+      // Smoothstep makes the effect fade naturally as the pointer leaves the
+      // waterline. Movement elsewhere in the topbar barely affects the water.
+      proximity = proximity * proximity * (3 - 2 * proximity);
+
+      var normalSpeed = Math.abs(pointerVelocityY) + Math.abs(pointerVelocityX) * 0.10;
+
+      if (proximity > 0.01 && normalSpeed > 0.018) {
+        var direction = Math.abs(pointerVelocityY) > 0.025
+          ? Math.sign(pointerVelocityY)
+          : 1;
+        var strength = clamp(normalSpeed * 0.52, 0, 0.52) * proximity;
+        var center = Math.round((pointerX / Math.max(1, width)) * (pointCount - 1));
+
+        // A compact Gaussian-like impulse creates one small ring that spreads
+        // out, instead of kicking seven points almost equally.
+        for (var offset = -4; offset <= 4; offset += 1) {
+          var point = clamp(center + offset, 0, pointCount - 1);
+          var weight = Math.exp(-(offset * offset) / 5.2);
+          velocity[point] += strength * weight * direction;
+        }
+
+        // Horizontal motion can gently nudge floating objects, but much less
+        // than before.
+        var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 110);
+        duck.speed = clamp(
+          duck.speed + pointerVelocityX * influence * proximity * 0.10,
+          -0.42,
+          0.42
+        );
+
+        var boatInfluence = Math.max(0, 1 - Math.abs(pointerX - boat.x) / 130);
+        boat.speed = clamp(
+          boat.speed + pointerVelocityX * boatInfluence * proximity * 0.07,
+          -0.32,
+          0.32
+        );
+
+        startWater();
       }
-
-      velocity[clamp(center - 5, 0, pointCount - 1)] -= strength * 0.28;
-      velocity[clamp(center + 5, 0, pointCount - 1)] -= strength * 0.28;
-      var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 150);
-      duck.speed = clamp(duck.speed + clamp(deltaX / elapsed, -2, 2) * influence * proximity, -2, 2);
-      var boatInfluence = Math.max(0, 1 - Math.abs(pointerX - boat.x) / 150);
-      boat.speed = clamp(boat.speed + clamp(deltaX / elapsed, -2, 2) * boatInfluence * proximity * 0.65, -1.5, 1.5);
-      startWater();
     }
 
     lastPointerX = pointerX;
