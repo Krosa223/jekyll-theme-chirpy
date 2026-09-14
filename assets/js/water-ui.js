@@ -32,6 +32,9 @@
   var pointerVelocityY = 0;
   var waterTime = 0;
   var lastFrameTime = 0;
+  var lastDrawTime = 0;
+  var drawInterval = 1000 / 30; // Canvas only redraws at ~30 FPS.
+  var transitionPaused = false;
   var duck = {
     x: 0, speed: 0, left: 20, right: 20, visible: false,
     heave: 0, heaveSpeed: 0
@@ -55,9 +58,9 @@
     // The sum is intentionally subtle so the topbar still feels like glass,
     // not like a cartoon ocean.
     return (
-      Math.sin(x * 0.020 - waterTime * 0.72) * 0.42 +
-      Math.sin(x * 0.043 + waterTime * 0.46 + 1.4) * 0.20 +
-      Math.sin(x * 0.010 - waterTime * 0.24 + 2.2) * 0.12
+      Math.sin(x * 0.020 - waterTime * 0.70) * 0.68 +
+      Math.sin(x * 0.043 + waterTime * 0.44 + 1.4) * 0.30 +
+      Math.sin(x * 0.010 - waterTime * 0.22 + 2.2) * 0.16
     );
   }
 
@@ -332,13 +335,26 @@
   }
 
   function stepWater(now) {
+    if (
+      !wrapper ||
+      transitionPaused ||
+      document.hidden ||
+      document.documentElement.classList.contains('is-changing') ||
+      motionQuery.matches
+    ) {
+      animationFrame = 0;
+      lastFrameTime = 0;
+      lastDrawTime = 0;
+      return;
+    }
+
     var index;
     var energy = 0;
     // Tuned for a shallow, calm reservoir: small amplitude, gentle travel
     // and enough damping that a touch does not turn into a splash.
-    var spring = 0.036;
-    var spread = 0.115;
-    var damping = 0.94;
+    var spring = 0.040;
+    var spread = 0.125;
+    var damping = 0.938;
     var elapsed = lastFrameTime ? clamp(now - lastFrameTime, 0, 48) : 16.67;
 
     lastFrameTime = now;
@@ -412,22 +428,28 @@
       }
     }
 
-    drawWater();
-
-    // Keep the ambient surface alive continuously. The old implementation
-    // stopped the RAF loop once interaction energy decayed, which is why the
-    // water became perfectly flat and the duck stopped bobbing.
-    if (wrapper && !motionQuery.matches) {
-      animationFrame = window.requestAnimationFrame(stepWater);
-      return;
+    // Canvas gradients and paths are the expensive part. Keep physics smooth,
+    // but redraw the reservoir at ~30 FPS. This is more than enough for a small
+    // topbar animation and leaves headroom for Swup transitions.
+    if (!lastDrawTime || now - lastDrawTime >= drawInterval) {
+      drawWater();
+      lastDrawTime = now;
     }
 
-    animationFrame = 0;
+    animationFrame = window.requestAnimationFrame(stepWater);
   }
 
   function startWater() {
-    if (!animationFrame && !motionQuery.matches) {
+    if (
+      !animationFrame &&
+      wrapper &&
+      !transitionPaused &&
+      !document.hidden &&
+      !document.documentElement.classList.contains('is-changing') &&
+      !motionQuery.matches
+    ) {
       lastFrameTime = 0;
+      lastDrawTime = 0;
       animationFrame = window.requestAnimationFrame(stepWater);
     }
   }
@@ -486,7 +508,7 @@
       var direction = Math.abs(pointerVelocityY) > 0.015
         ? Math.sign(pointerVelocityY)
         : 1;
-      var strength = clamp(normalSpeed * 0.44, 0, 0.34) * proximity;
+      var strength = clamp(normalSpeed * 0.62, 0, 0.56) * proximity;
       var center = Math.round((pointerX / Math.max(1, width)) * (pointCount - 1));
 
       // Localized impulse: visible at the cursor, but without the large
@@ -499,8 +521,8 @@
 
       // Tiny opposite lobes make the disturbance read more like a ripple
       // than a whole patch of water being lifted together.
-      velocity[clamp(center - 5, 0, pointCount - 1)] -= strength * 0.10 * direction;
-      velocity[clamp(center + 5, 0, pointCount - 1)] -= strength * 0.10 * direction;
+      velocity[clamp(center - 5, 0, pointCount - 1)] -= strength * 0.12 * direction;
+      velocity[clamp(center + 5, 0, pointCount - 1)] -= strength * 0.12 * direction;
 
       var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 125);
       duck.speed = clamp(
@@ -529,7 +551,7 @@
     if (!wrapper || !canvas || !context) return;
 
     var bounds = wrapper.getBoundingClientRect();
-    var pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
+    var pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
     var nextWidth = Math.max(1, Math.round(bounds.width));
     var nextHeight = Math.max(1, Math.round(bounds.height));
     var nextCount = clamp(Math.round(nextWidth / 16), 48, 96);
@@ -638,7 +660,40 @@
     canvas = null;
     context = null;
     lastFrameTime = 0;
+    lastDrawTime = 0;
     resetPointer();
+  }
+
+  function pauseForNavigation() {
+    transitionPaused = true;
+    if (animationFrame) {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    }
+    lastFrameTime = 0;
+    lastDrawTime = 0;
+  }
+
+  function resumeAfterNavigation() {
+    transitionPaused = false;
+    window.requestAnimationFrame(function () {
+      mountTopbar();
+      startWater();
+    });
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      }
+      lastFrameTime = 0;
+      lastDrawTime = 0;
+      return;
+    }
+
+    startWater();
   }
 
   function mountTopbar() {
@@ -697,7 +752,9 @@
   function destroy() {
     unmountTopbar();
     document.removeEventListener('pointerdown', createRipple);
-    document.removeEventListener('swup:page:view', mountTopbar);
+    document.removeEventListener('swup:visit:start', pauseForNavigation);
+    document.removeEventListener('swup:page:view', resumeAfterNavigation);
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
     window.removeEventListener('resize', resizeCanvas);
 
     if (motionQuery.removeEventListener) {
@@ -710,9 +767,9 @@
   }
 
   document.addEventListener('pointerdown', createRipple, { passive: true });
-  document.addEventListener('swup:page:view', function () {
-    window.requestAnimationFrame(mountTopbar);
-  });
+  document.addEventListener('swup:visit:start', pauseForNavigation);
+  document.addEventListener('swup:page:view', resumeAfterNavigation);
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 
   if (!('ResizeObserver' in window)) {
     window.addEventListener('resize', resizeCanvas, { passive: true });
