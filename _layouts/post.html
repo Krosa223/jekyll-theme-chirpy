@@ -23,6 +23,14 @@ script_includes:
   {% if page.image %}
     {% capture hero_src %}src="{{ page.image.path | default: page.image }}"{% endcapture %}
     {% capture hero_alt %}alt="{{ page.image.alt | xml_escape | default: "Preview Image" }}"{% endcapture %}
+    {% capture hero_url %}
+      {% include media-url.html src=page.image.path subpath=page.media_subpath %}
+    {% endcapture %}
+    {% unless page.image.path %}
+      {% capture hero_url %}
+        {% include media-url.html src=page.image subpath=page.media_subpath %}
+      {% endcapture %}
+    {% endunless %}
     {% if page.image.lqip %}
       {%- capture hero_lqip -%}lqip="{{ page.image.lqip }}"{%- endcapture -%}
     {% endif %}
@@ -31,7 +39,9 @@ script_includes:
   <header class="post-hero{% if page.image %} post-hero-with-cover{% else %} post-hero-plain{% endif %}">
     {% if page.image %}
       <div class="post-hero-media">
-        <img {{ hero_src }} class="post-hero-image" {{ hero_alt }} w="1200" h="630" {{ hero_lqip }}>
+        <a href="{{ hero_url | strip }}" class="popup img-link post-hero-preview" aria-label="预览文章封面">
+          <img {{ hero_src }} class="post-hero-image no-popup" {{ hero_alt }} w="1200" h="630" {{ hero_lqip }}>
+        </a>
       </div>
     {% endif %}
 
