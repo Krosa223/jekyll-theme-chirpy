@@ -58,9 +58,9 @@
     // The sum is intentionally subtle so the topbar still feels like glass,
     // not like a cartoon ocean.
     return (
-      Math.sin(x * 0.020 - waterTime * 0.70) * 0.68 +
-      Math.sin(x * 0.043 + waterTime * 0.44 + 1.4) * 0.30 +
-      Math.sin(x * 0.010 - waterTime * 0.22 + 2.2) * 0.16
+      Math.sin(x * 0.010 - waterTime * 0.78) * 2.35 +
+      Math.sin(x * 0.021 + waterTime * 0.49 + 1.4) * 1.05 +
+      Math.sin(x * 0.0056 - waterTime * 0.22 + 2.2) * 0.52
     );
   }
 
@@ -95,12 +95,49 @@
     context.restore();
   }
 
+
+  function drawBuoyancyRipple(x, heaveSpeed, size) {
+    var motion = Math.abs(heaveSpeed);
+    if (motion < 0.010) return;
+
+    var waterline = height * 0.62 + surfaceAt(x);
+    var strength = clamp(motion / 0.20, 0, 1);
+    var spread = size * (0.75 + strength * 0.30);
+
+    context.save();
+    context.lineCap = 'round';
+    context.lineWidth = 0.65 + strength * 0.25;
+    context.strokeStyle = 'rgba(231, 252, 255, ' + (0.08 + strength * 0.14) + ')';
+
+    context.beginPath();
+    context.moveTo(x - size * 0.42, waterline + 1.2);
+    context.quadraticCurveTo(
+      x - spread,
+      waterline + 2.1 + strength * 1.1,
+      x - spread - 5,
+      waterline + 1.35
+    );
+    context.stroke();
+
+    context.beginPath();
+    context.moveTo(x + size * 0.42, waterline + 1.2);
+    context.quadraticCurveTo(
+      x + spread,
+      waterline + 2.1 + strength * 1.1,
+      x + spread + 5,
+      waterline + 1.35
+    );
+    context.stroke();
+
+    context.restore();
+  }
+
   function drawBoat() {
     if (!boat.visible) return;
     var slope = (surfaceAt(boat.x + 12) - surfaceAt(boat.x - 12)) / 24;
     context.save();
     context.translate(boat.x, height * 0.62 + boat.heave);
-    context.rotate(clamp(Math.atan(slope), -0.24, 0.24));
+    context.rotate(clamp(Math.atan(slope * 1.95), -0.40, 0.40));
     context.fillStyle = 'rgba(32, 127, 149, 0.16)';
     context.beginPath();
     context.ellipse(0, 3, 16, 2, 0, 0, Math.PI * 2);
@@ -143,7 +180,7 @@
     var slope = (surfaceAt(duck.x + 8) - surfaceAt(duck.x - 8)) / 16;
     context.save();
     context.translate(duck.x, height * 0.62 + duck.heave);
-    context.rotate(clamp(Math.atan(slope), -0.3, 0.3));
+    context.rotate(clamp(Math.atan(slope * 2.10), -0.46, 0.46));
     context.fillStyle = 'rgba(32, 127, 149, 0.16)';
     context.beginPath();
     context.ellipse(0, 2, 12, 2.5, 0, 0, Math.PI * 2);
@@ -328,6 +365,8 @@
     drawFlowBands();
     drawWake(duck.x, duck.speed, 11);
     drawWake(boat.x, boat.speed, 16);
+    drawBuoyancyRipple(duck.x, duck.heaveSpeed, 11);
+    drawBuoyancyRipple(boat.x, boat.heaveSpeed, 16);
     drawDuck();
     drawBoat();
     drawForegroundWater();
@@ -352,9 +391,9 @@
     var energy = 0;
     // Tuned for a shallow, calm reservoir: small amplitude, gentle travel
     // and enough damping that a touch does not turn into a splash.
-    var spring = 0.040;
-    var spread = 0.125;
-    var damping = 0.938;
+    var spring = 0.034;
+    var spread = 0.148;
+    var damping = 0.948;
     var elapsed = lastFrameTime ? clamp(now - lastFrameTime, 0, 48) : 16.67;
 
     lastFrameTime = now;
@@ -397,9 +436,17 @@
 
       // Spring-damper heave: the duck follows the water with a slight delay.
       // That delay is what makes it feel buoyant rather than glued to a line.
-      var duckTarget = surfaceAt(duck.x) + 1.15;
-      duck.heaveSpeed += (duckTarget - duck.heave) * 0.085;
-      duck.heaveSpeed *= 0.80;
+      var duckSurface =
+        (
+          surfaceAt(duck.x - 10) +
+          surfaceAt(duck.x - 4) +
+          surfaceAt(duck.x) * 2 +
+          surfaceAt(duck.x + 4) +
+          surfaceAt(duck.x + 10)
+        ) / 6;
+      var duckTarget = duckSurface * 1.58 + 1.45;
+      duck.heaveSpeed += (duckTarget - duck.heave) * 0.132;
+      duck.heaveSpeed *= 0.91;
       duck.heave += duck.heaveSpeed;
     }
 
@@ -412,9 +459,17 @@
         boat.speed *= -0.25;
       }
 
-      var boatTarget = surfaceAt(boat.x) + 0.7;
-      boat.heaveSpeed += (boatTarget - boat.heave) * 0.065;
-      boat.heaveSpeed *= 0.84;
+      var boatSurface =
+        (
+          surfaceAt(boat.x - 18) +
+          surfaceAt(boat.x - 8) +
+          surfaceAt(boat.x) * 2 +
+          surfaceAt(boat.x + 8) +
+          surfaceAt(boat.x + 18)
+        ) / 6;
+      var boatTarget = boatSurface * 1.48 + 0.95;
+      boat.heaveSpeed += (boatTarget - boat.heave) * 0.108;
+      boat.heaveSpeed *= 0.925;
       boat.heave += boat.heaveSpeed;
 
       // Resolve contact without allowing the two floating objects to overlap.
@@ -508,21 +563,21 @@
       var direction = Math.abs(pointerVelocityY) > 0.015
         ? Math.sign(pointerVelocityY)
         : 1;
-      var strength = clamp(normalSpeed * 0.62, 0, 0.56) * proximity;
+      var strength = clamp(normalSpeed * 1.05, 0, 0.95) * proximity;
       var center = Math.round((pointerX / Math.max(1, width)) * (pointCount - 1));
 
       // Localized impulse: visible at the cursor, but without the large
       // seven-point shove from the original version.
-      for (var offset = -3; offset <= 3; offset += 1) {
+      for (var offset = -4; offset <= 4; offset += 1) {
         var point = clamp(center + offset, 0, pointCount - 1);
-        var weight = Math.exp(-(offset * offset) / 3.8);
+        var weight = Math.exp(-(offset * offset) / 5.2);
         velocity[point] += strength * weight * direction;
       }
 
-      // Tiny opposite lobes make the disturbance read more like a ripple
-      // than a whole patch of water being lifted together.
-      velocity[clamp(center - 5, 0, pointCount - 1)] -= strength * 0.12 * direction;
-      velocity[clamp(center + 5, 0, pointCount - 1)] -= strength * 0.12 * direction;
+      // Broader opposite lobes help the pushed patch read like a small surface
+      // wave joining the main swell rather than a local twitch.
+      velocity[clamp(center - 6, 0, pointCount - 1)] -= strength * 0.16 * direction;
+      velocity[clamp(center + 6, 0, pointCount - 1)] -= strength * 0.16 * direction;
 
       var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 125);
       duck.speed = clamp(
@@ -580,7 +635,17 @@
     duck.visible = width >= 600 && duck.right - duck.left >= 60;
     duck.x = duck.visible ? clamp(fraction * width, duck.left, duck.right) : width / 2;
     duck.speed = 0;
-    duck.heave = duck.visible ? surfaceAt(duck.x) + 1.15 : 0;
+    duck.heave = duck.visible
+      ? (
+          (
+            surfaceAt(duck.x - 10) +
+            surfaceAt(duck.x - 4) +
+            surfaceAt(duck.x) * 2 +
+            surfaceAt(duck.x + 4) +
+            surfaceAt(duck.x + 10)
+          ) / 6
+        ) * 1.58 + 1.45
+      : 0;
     duck.heaveSpeed = 0;
     boat.visible = duck.visible && duck.right - duck.left >= 130 && height >= 44;
     boat.x = boat.visible ? clamp(boatFraction * width, duck.left, duck.right) : width / 2;
@@ -588,7 +653,17 @@
       boat.x = duck.x + 40 <= duck.right ? duck.x + 40 : duck.x - 40;
     }
     boat.speed = 0;
-    boat.heave = boat.visible ? surfaceAt(boat.x) + 0.7 : 0;
+    boat.heave = boat.visible
+      ? (
+          (
+            surfaceAt(boat.x - 18) +
+            surfaceAt(boat.x - 8) +
+            surfaceAt(boat.x) * 2 +
+            surfaceAt(boat.x + 8) +
+            surfaceAt(boat.x + 18)
+          ) / 6
+        ) * 1.48 + 0.95
+      : 0;
     boat.heaveSpeed = 0;
     resetPointer();
     drawWater();
