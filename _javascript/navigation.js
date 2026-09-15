@@ -78,6 +78,13 @@ const swup = new Swup({
   containers: ['#swup'],
   animationSelector: '[data-swup-transition]',
   animateHistoryBrowsing: true,
+
+  // GLightbox owns .popup links. Without this guard, Swup also treats the
+  // image href as a page visit and can navigate the browser to the raw image.
+  // Keep Swup's normal data-no-swup escape hatch as well.
+  ignoreVisit: (url, { el } = {}) =>
+    Boolean(el?.closest('[data-no-swup], .popup')),
+
   plugins: [
     new SwupHeadPlugin({
       awaitAssets: true,
@@ -109,9 +116,8 @@ swup.hooks.before('content:replace', () => {
 swup.hooks.on('page:view', () => {
   updateSidebarActiveLink();
 
-  // Swup replaces the page content without a full reload. The previous
-  // GLightbox instance is destroyed in cleanupCurrentPage(), so bind the
-  // shared .popup pipeline to the newly inserted cover/body images here.
+  // The old lightbox instance is destroyed by cleanupCurrentPage().
+  // Bind the new page's .popup links exactly once after content replacement.
   imgPopup();
 });
 

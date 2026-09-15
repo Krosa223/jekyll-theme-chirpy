@@ -548,7 +548,7 @@
     pointerVelocityY = pointerVelocityY * 0.58 + rawVY * 0.42;
 
     var waterline = height * 0.62 + surfaceAt(pointerX);
-    var interactionRadius = Math.max(13, height * 0.32);
+    var interactionRadius = Math.max(17, height * 0.46);
     var distanceToSurface = Math.abs(pointerY - waterline);
     var proximity = 1 - clamp(distanceToSurface / interactionRadius, 0, 1);
 
@@ -557,40 +557,78 @@
 
     // Vertical movement couples most strongly to the surface; horizontal
     // movement still creates a small wake so simply passing over the water is visible.
-    var normalSpeed = Math.abs(pointerVelocityY) + Math.abs(pointerVelocityX) * 0.16;
+    // Horizontal sweeps should also push the surface strongly. In the old
+    // tuning only 16% of horizontal mouse speed contributed, so moving the
+    // pointer across the topbar barely generated a visible wave.
+    var normalSpeed =
+      Math.abs(pointerVelocityY) * 1.05 +
+      Math.abs(pointerVelocityX) * 0.58;
 
     if (proximity > 0.006 && normalSpeed > 0.008) {
       var direction = Math.abs(pointerVelocityY) > 0.015
         ? Math.sign(pointerVelocityY)
         : 1;
-      var strength = clamp(normalSpeed * 1.05, 0, 0.95) * proximity;
+      var strength = clamp(normalSpeed * 1.42, 0, 1.75) * proximity;
       var center = Math.round((pointerX / Math.max(1, width)) * (pointCount - 1));
 
-      // Localized impulse: visible at the cursor, but without the large
-      // seven-point shove from the original version.
-      for (var offset = -4; offset <= 4; offset += 1) {
+      // Broader impulse: the cursor now pushes a patch of water rather than
+      // just a few points. Clamp local velocity so repeated fast sweeps remain
+      // dramatic without exploding into an unstable "tsunami".
+      for (var offset = -6; offset <= 6; offset += 1) {
         var point = clamp(center + offset, 0, pointCount - 1);
-        var weight = Math.exp(-(offset * offset) / 5.2);
-        velocity[point] += strength * weight * direction;
+        var weight = Math.exp(-(offset * offset) / 9.2);
+        velocity[point] = clamp(
+          velocity[point] + strength * weight * direction,
+          -3.4,
+          3.4
+        );
       }
 
-      // Broader opposite lobes help the pushed patch read like a small surface
-      // wave joining the main swell rather than a local twitch.
-      velocity[clamp(center - 6, 0, pointCount - 1)] -= strength * 0.16 * direction;
-      velocity[clamp(center + 6, 0, pointCount - 1)] -= strength * 0.16 * direction;
+      // Add a leading/trailing pair based on horizontal mouse direction. This
+      // makes a sideways sweep launch a travelling wave instead of a symmetric
+      // local bump.
+      var travelDirection = pointerVelocityX >= 0 ? 1 : -1;
+      var lead = clamp(center + travelDirection * 6, 0, pointCount - 1);
+      var trail = clamp(center - travelDirection * 7, 0, pointCount - 1);
+
+      velocity[lead] = clamp(
+        velocity[lead] + strength * 0.36 * direction,
+        -3.4,
+        3.4
+      );
+      velocity[trail] = clamp(
+        velocity[trail] - strength * 0.24 * direction,
+        -3.4,
+        3.4
+      );
+
+      // Wider counter-lobes give the mouse-created disturbance an ocean-wave
+      // silhouette: a crest followed by a trough.
+      velocity[clamp(center - 9, 0, pointCount - 1)] = clamp(
+        velocity[clamp(center - 9, 0, pointCount - 1)] -
+          strength * 0.18 * direction,
+        -3.4,
+        3.4
+      );
+      velocity[clamp(center + 9, 0, pointCount - 1)] = clamp(
+        velocity[clamp(center + 9, 0, pointCount - 1)] -
+          strength * 0.18 * direction,
+        -3.4,
+        3.4
+      );
 
       var influence = Math.max(0, 1 - Math.abs(pointerX - duck.x) / 125);
       duck.speed = clamp(
-        duck.speed + pointerVelocityX * influence * proximity * 0.14,
-        -0.50,
-        0.50
+        duck.speed + pointerVelocityX * influence * proximity * 0.22,
+        -0.62,
+        0.62
       );
 
       var boatInfluence = Math.max(0, 1 - Math.abs(pointerX - boat.x) / 145);
       boat.speed = clamp(
-        boat.speed + pointerVelocityX * boatInfluence * proximity * 0.10,
-        -0.38,
-        0.38
+        boat.speed + pointerVelocityX * boatInfluence * proximity * 0.16,
+        -0.48,
+        0.48
       );
 
       startWater();
