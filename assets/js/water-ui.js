@@ -35,6 +35,17 @@
   var lastDrawTime = 0;
   var drawInterval = 1000 / 30; // Canvas only redraws at ~30 FPS.
   var transitionPaused = false;
+
+  // Cursor / splash physics. The main water remains a very cheap 1-D height
+  // field; only detached spray is particle based.
+  var wrapperLeft = 0;
+  var wrapperTop = 0;
+  var splashParticles = [];
+  var maxSplashParticles = 84;
+  var lastSplashTime = 0;
+  var lastColliderX = Number.NaN;
+  var lastColliderY = Number.NaN;
+
   var duck = {
     x: 0, speed: 0, left: 20, right: 20, visible: false,
     heave: 0, heaveSpeed: 0
@@ -128,6 +139,258 @@
       waterline + 1.35
     );
     context.stroke();
+
+    context.restore();
+  }
+
+  function cursorColliderState() {
+    var cursor = window.krosaGlassCursor;
+
+    if (!cursor || typeof cursor.getState !== 'function') return null;
+
+    var state = cursor.getState();
+    if (!state || !state.active) return null;
+
+    return {
+      x: state.x - wrapperLeft,
+      y: state.y - wrapperTop,
+      vx: Number.isFinite(state.vx) ? state.vx : 0,
+      vy: Number.isFinite(state.vy) ? state.vy : 0,
+      speed: Number.isFinite(state.speed) ? state.speed : 0,
+      radius: clamp(Number.isFinite(state.radius) ? state.radius : 16, 10, 28)
+    };
+  }
+
+  function addSurfaceImpulse(pointIndex, amount) {
+    pointIndex = clamp(pointIndex, 0, pointCount - 1);
+    velocity[pointIndex] = clamp(velocity[pointIndex] + amount, -4.2, 4.2);
+  }
+
+  function spawnSplash(x, y, vx, vy, intensity, direction, now) {
+    if (now - lastSplashTime < 34) return;
+
+    intensity = clamp(intensity, 0, 1);
+    if (intensity < 0.16) return;
+
+    lastSplashTime = now;
+
+    var count = 1 + Math.floor(intensity * 5);
+    var available = Math.max(0, maxSplashParticles - splashParticles.length);
+    count = Math.min(count, available);
+
+    for (var index = 0; index < count; index += 1) {
+      var side = Math.random() * 2 - 1;
+      var inheritedX = vx * (0.055 + Math.random() * 0.045);
+      var outwardX =
+        direction * (34 + Math.random() * 68) * (0.42 + intensity * 0.58);
+
+      splashParticles.push({
+        x: x + side * (3 + Math.random() * 8),
+        y: y - 1 - Math.random() * 3,
+        vx: inheritedX + outwardX + side * (18 + Math.random() * 34),
+        vy:
+          -(
+            52 +
+            Math.random() * 82 +
+            intensity * 90 +
+            Math.max(0, vy) * 0.045
+          ),
+        age: 0,
+        life: 0.34 + Math.random() * 0.28,
+        size: Math.random() < 0.72 ? 2 : 3,
+        alpha: 0.44 + Math.random() * 0.34
+      });
+    }
+  }
+
+  function applyCursorCollider(now) {
+    if (!wrapper || pointCount < 2 || motionQuery.matches) return;
+
+    var collider = cursorColliderState();
+
+    // If the glass cursor module is not exposing state yet, keep the old
+    // pointer fallback alive. Once getState() exists, this is the only force
+    // path so the visible disc and the water cannot drift apart.
+    if (!collider) {
+      lastColliderX = Number.NaN;
+      lastColliderY = Number.NaN;
+      return;
+    }
+
+    var radius = collider.radius;
+    if (
+      collider.x < -radius ||
+      collider.x > width + radius ||
+      collider.y < -radius ||
+      collider.y > height + radius
+    ) {
+      lastColliderX = collider.x;
+      lastColliderY = collider.y;
+      return;
+    }
+
+    var surfaceY = height * 0.62 + surfaceAt(collider.x);
+    var signedDepth = collider.y - surfaceY;
+
+    // Contact is strongest while the visible disc cuts through the interface.
+    // Deep underwater / far above the surface fades out instead of pulling the
+    // whole strip like rubber.
+    var contactDistance = Math.abs(signedDepth);
+    var contact = 1 - clamp(contactDistance / (radius * 1.28), 0, 1);
+    contact = contact * contact * (3 - 2 * contact);
+
+    if (contact <= 0.004) {
+      lastColliderX = collider.x;
+      lastColliderY = collider.y;
+      return;
+    }
+
+    var step = width / Math.max(1, pointCount - 1);
+    var center = Math.round(collider.x / Math.max(1, width) * (pointCount - 1));
+    var radiusPoints = clamp(Math.ceil((radius * 1.75) / Math.max(1, step)), 2, 5);
+    var speedRatio = clamp(collider.speed / 900, 0, 1);
+    var horizontalRatio = clamp(Math.abs(collider.vx) / 850, 0, 1);
+    var downwardRatio = clamp(Math.max(0, collider.vy) / 700, 0, 1);
+
+    // The solid disc depresses the water locally. This is a target force rather
+    // than a raw kick, so slow contact still has volume and does not feel like
+    // a massless mouse pointer.
+    var penetration = clamp((signedDepth + radius) / (radius * 2), 0, 1);
+    var depressionTarget =
+      contact * penetration * (2.2 + speedRatio * 3.8 + downwardRatio * 2.2);
+
+    for (var offset = -radiusPoints; offset <= radiusPoints; offset += 1) {
+      var point = clamp(center + offset, 0, pointCount - 1);
+      var normalized = offset / Math.max(1, radiusPoints);
+      var weight = Math.max(0, 1 - normalized * normalized);
+
+      velocity[point] = clamp(
+        velocity[point] +
+          (depressionTarget * weight - displacement[point] * 0.035) * 0.11,
+        -4.2,
+        4.2
+      );
+    }
+
+    // Sideways motion displaces volume: water piles up in front of the disc and
+    // leaves a weaker trough behind it. Negative displacement is visually an
+    // upward crest in this canvas coordinate system.
+    var direction = collider.vx >= 0 ? 1 : -1;
+    var front = center + direction * (radiusPoints + 2);
+    var frontFar = center + direction * (radiusPoints + 4);
+    var rear = center - direction * (radiusPoints + 2);
+    var push = contact * (0.22 + horizontalRatio * 1.28 + speedRatio * 0.34);
+
+    addSurfaceImpulse(front, -push);
+    addSurfaceImpulse(frontFar, -push * 0.48);
+    addSurfaceImpulse(rear, push * 0.34);
+
+    // Vertical entry creates a paired crest rather than one jelly-like hump.
+    if (Math.abs(collider.vy) > 85) {
+      var verticalPush =
+        contact * clamp(Math.abs(collider.vy) / 700, 0, 1) * 0.78;
+      addSurfaceImpulse(center - radiusPoints - 1, -verticalPush);
+      addSurfaceImpulse(center + radiusPoints + 1, -verticalPush);
+    }
+
+    var duckInfluence = Math.max(0, 1 - Math.abs(collider.x - duck.x) / 118);
+    if (duck.visible && duckInfluence > 0) {
+      duck.speed = clamp(
+        duck.speed + collider.vx / 1000 * duckInfluence * contact * 0.19,
+        -0.68,
+        0.68
+      );
+    }
+
+    var boatInfluence = Math.max(0, 1 - Math.abs(collider.x - boat.x) / 145);
+    if (boat.visible && boatInfluence > 0) {
+      boat.speed = clamp(
+        boat.speed + collider.vx / 1000 * boatInfluence * contact * 0.14,
+        -0.52,
+        0.52
+      );
+    }
+
+    // Only fast/meaningful contacts throw detached droplets.
+    var splashIntensity =
+      contact *
+      clamp(speedRatio * 0.72 + downwardRatio * 0.54 + horizontalRatio * 0.42, 0, 1);
+
+    spawnSplash(
+      collider.x,
+      surfaceY,
+      collider.vx,
+      collider.vy,
+      splashIntensity,
+      direction,
+      now
+    );
+
+    lastColliderX = collider.x;
+    lastColliderY = collider.y;
+  }
+
+  function updateSplashParticles(elapsed) {
+    if (!splashParticles.length) return;
+
+    var dt = clamp(elapsed / 1000, 0, 0.05);
+    var gravity = 430;
+
+    splashParticles = splashParticles.filter(function (particle) {
+      particle.age += dt;
+      if (particle.age >= particle.life) return false;
+
+      particle.vx *= Math.pow(0.985, dt * 60);
+      particle.vy += gravity * dt;
+      particle.x += particle.vx * dt;
+      particle.y += particle.vy * dt;
+
+      if (particle.x < -10 || particle.x > width + 10 || particle.y > height + 10) {
+        return false;
+      }
+
+      // Re-entry: recycle the droplet and return a tiny amount of energy to
+      // the height field. This makes splashes feel connected to the water.
+      if (particle.age > 0.09 && particle.vy > 0) {
+        var surfaceY = height * 0.62 + surfaceAt(particle.x);
+        if (particle.y >= surfaceY) {
+          var center = Math.round(
+            clamp(particle.x, 0, width) / Math.max(1, width) * (pointCount - 1)
+          );
+          addSurfaceImpulse(center, clamp(particle.vy / 900, 0.025, 0.12));
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }
+
+  function drawSplashParticles() {
+    if (!splashParticles.length) return;
+
+    context.save();
+
+    splashParticles.forEach(function (particle) {
+      var progress = clamp(particle.age / particle.life, 0, 1);
+      var alpha = particle.alpha * Math.pow(1 - progress, 0.7);
+      var pixelSize = particle.size;
+
+      // Deliberately snap to a 2 px grid and use fillRect: this keeps detached
+      // spray cheap and gives the requested subtle pixel-particle look.
+      var x = Math.round(particle.x / 2) * 2;
+      var y = Math.round(particle.y / 2) * 2;
+
+      context.fillStyle =
+        'rgba(214, 248, 255, ' + alpha.toFixed(3) + ')';
+      context.fillRect(x, y, pixelSize, pixelSize);
+
+      if (pixelSize >= 3 && alpha > 0.25) {
+        context.fillStyle =
+          'rgba(255, 255, 255, ' + (alpha * 0.42).toFixed(3) + ')';
+        context.fillRect(x, y, 1, 1);
+      }
+    });
 
     context.restore();
   }
@@ -371,6 +634,7 @@
     drawBoat();
     drawForegroundWater();
     drawSurfaceShimmer();
+    drawSplashParticles();
   }
 
   function stepWater(now) {
@@ -391,13 +655,19 @@
     var energy = 0;
     // Tuned for a shallow, calm reservoir: small amplitude, gentle travel
     // and enough damping that a touch does not turn into a splash.
-    var spring = 0.034;
-    var spread = 0.148;
-    var damping = 0.948;
+    // Less "rubber sheet": weaker local spring, stronger lateral transport
+    // and slightly heavier damping. The result travels like water instead of
+    // oscillating in place like jelly.
+    var spring = 0.018;
+    var spread = 0.198;
+    var damping = 0.930;
     var elapsed = lastFrameTime ? clamp(now - lastFrameTime, 0, 48) : 16.67;
 
     lastFrameTime = now;
     waterTime += elapsed / 1000;
+
+    applyCursorCollider(now);
+    updateSplashParticles(elapsed);
 
     for (index = 0; index < pointCount; index += 1) {
       var left = displacement[Math.max(0, index - 1)];
@@ -510,6 +780,13 @@
   }
 
   function disturbWater(event) {
+    if (
+      window.krosaGlassCursor &&
+      typeof window.krosaGlassCursor.getState === 'function'
+    ) {
+      return;
+    }
+
     if (
       !wrapper ||
       !pointerQuery.matches ||
@@ -644,6 +921,8 @@
     if (!wrapper || !canvas || !context) return;
 
     var bounds = wrapper.getBoundingClientRect();
+    wrapperLeft = bounds.left;
+    wrapperTop = bounds.top;
     var pixelRatio = Math.min(window.devicePixelRatio || 1, 1.25);
     var nextWidth = Math.max(1, Math.round(bounds.width));
     var nextHeight = Math.max(1, Math.round(bounds.height));

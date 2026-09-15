@@ -41,6 +41,8 @@
   var targetY = 0;
   var currentX = 0;
   var currentY = 0;
+  var velocityX = 0;
+  var velocityY = 0;
   var headNormalX = 0;
   var headNormalY = 1;
   var headNormalReady = false;
@@ -430,6 +432,8 @@
 
   function deactivate() {
     activeSurface = null;
+    velocityX = 0;
+    velocityY = 0;
     layer.classList.remove('is-active');
     ensureAnimation();
   }
@@ -682,6 +686,19 @@
       var moveX = currentX - previousX;
       var moveY = currentY - previousY;
       var speed = Math.hypot(moveX, moveY);
+      var safeElapsed = Math.max(1, elapsed);
+      var instantVelocityX = moveX / safeElapsed * 1000;
+      var instantVelocityY = moveY / safeElapsed * 1000;
+
+      // Export a smoothed velocity that follows the visible disc, not the raw
+      // hardware pointer. water-ui.js uses this exact motion for collision.
+      velocityX = velocityX * 0.58 + instantVelocityX * 0.42;
+      velocityY = velocityY * 0.58 + instantVelocityY * 0.42;
+
+      if (speed <= 0.04) {
+        velocityX *= 0.82;
+        velocityY *= 0.82;
+      }
 
       if (speed > 0.04) {
         appendTrailPoint(time);
@@ -819,6 +836,21 @@
 
   window.krosaGlassCursor = {
     hide: deactivate,
-    refresh: refreshSurface
+    refresh: refreshSurface,
+
+    // Public read-only physics state. This lets other visual modules use the
+    // same visible circular cursor as a collider without drawing a second ball.
+    getState: function () {
+      return {
+        x: currentX,
+        y: currentY,
+        vx: velocityX,
+        vy: velocityY,
+        speed: Math.hypot(velocityX, velocityY),
+        radius: discRadius,
+        active: Boolean(enabled && hasPointer && activeSurface),
+        enabled: enabled
+      };
+    }
   };
 })();
