@@ -784,6 +784,11 @@
       window.krosaGlassCursor &&
       typeof window.krosaGlassCursor.getState === 'function'
     ) {
+      // The V7 collider is evaluated inside stepWater(). Wake the simulation
+      // whenever the visible glass cursor moves over the reservoir.
+      if (wrapper && !motionQuery.matches && !transitionPaused) {
+        startWater();
+      }
       return;
     }
 
