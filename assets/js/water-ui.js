@@ -69,9 +69,9 @@
     // The sum is intentionally subtle so the topbar still feels like glass,
     // not like a cartoon ocean.
     return (
-      Math.sin(x * 0.010 - waterTime * 0.78) * 2.35 +
-      Math.sin(x * 0.021 + waterTime * 0.49 + 1.4) * 1.05 +
-      Math.sin(x * 0.0056 - waterTime * 0.22 + 2.2) * 0.52
+      Math.sin(x * 0.010 - waterTime * 0.82) * 2.75 +
+      Math.sin(x * 0.021 + waterTime * 0.52 + 1.4) * 1.25 +
+      Math.sin(x * 0.0056 - waterTime * 0.24 + 2.2) * 0.62
     );
   }
 
@@ -163,18 +163,18 @@
 
   function addSurfaceImpulse(pointIndex, amount) {
     pointIndex = clamp(pointIndex, 0, pointCount - 1);
-    velocity[pointIndex] = clamp(velocity[pointIndex] + amount, -4.2, 4.2);
+    velocity[pointIndex] = clamp(velocity[pointIndex] + amount, -4.8, 4.8);
   }
 
   function spawnSplash(x, y, vx, vy, intensity, direction, now) {
     if (now - lastSplashTime < 34) return;
 
     intensity = clamp(intensity, 0, 1);
-    if (intensity < 0.16) return;
+    if (intensity < 0.13) return;
 
     lastSplashTime = now;
 
-    var count = 1 + Math.floor(intensity * 5);
+    var count = 1 + Math.floor(intensity * 6);
     var available = Math.max(0, maxSplashParticles - splashParticles.length);
     count = Math.min(count, available);
 
@@ -257,7 +257,7 @@
     // a massless mouse pointer.
     var penetration = clamp((signedDepth + radius) / (radius * 2), 0, 1);
     var depressionTarget =
-      contact * penetration * (2.2 + speedRatio * 3.8 + downwardRatio * 2.2);
+      contact * penetration * (2.5 + speedRatio * 4.5 + downwardRatio * 2.6);
 
     for (var offset = -radiusPoints; offset <= radiusPoints; offset += 1) {
       var point = clamp(center + offset, 0, pointCount - 1);
@@ -266,9 +266,9 @@
 
       velocity[point] = clamp(
         velocity[point] +
-          (depressionTarget * weight - displacement[point] * 0.035) * 0.11,
-        -4.2,
-        4.2
+          (depressionTarget * weight - displacement[point] * 0.035) * 0.13,
+        -4.8,
+        4.8
       );
     }
 
@@ -279,7 +279,7 @@
     var front = center + direction * (radiusPoints + 2);
     var frontFar = center + direction * (radiusPoints + 4);
     var rear = center - direction * (radiusPoints + 2);
-    var push = contact * (0.22 + horizontalRatio * 1.28 + speedRatio * 0.34);
+    var push = contact * (0.28 + horizontalRatio * 1.55 + speedRatio * 0.42);
 
     addSurfaceImpulse(front, -push);
     addSurfaceImpulse(frontFar, -push * 0.48);
@@ -288,7 +288,7 @@
     // Vertical entry creates a paired crest rather than one jelly-like hump.
     if (Math.abs(collider.vy) > 85) {
       var verticalPush =
-        contact * clamp(Math.abs(collider.vy) / 700, 0, 1) * 0.78;
+        contact * clamp(Math.abs(collider.vy) / 700, 0, 1) * 0.95;
       addSurfaceImpulse(center - radiusPoints - 1, -verticalPush);
       addSurfaceImpulse(center + radiusPoints + 1, -verticalPush);
     }
@@ -660,7 +660,7 @@
     // oscillating in place like jelly.
     var spring = 0.018;
     var spread = 0.198;
-    var damping = 0.930;
+    var damping = 0.934;
     var elapsed = lastFrameTime ? clamp(now - lastFrameTime, 0, 48) : 16.67;
 
     lastFrameTime = now;
