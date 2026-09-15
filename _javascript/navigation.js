@@ -4,6 +4,8 @@ import SwupHeadPlugin from '@swup/head-plugin';
 import SwupPreloadPlugin from '@swup/preload-plugin';
 import SwupScriptsPlugin from '@swup/scripts-plugin';
 
+import { imgPopup } from './modules/components';
+
 const pageCleanups = new Set();
 
 window.krosaRegisterPageCleanup = (cleanup) => {
@@ -106,6 +108,11 @@ swup.hooks.before('content:replace', () => {
 
 swup.hooks.on('page:view', () => {
   updateSidebarActiveLink();
+
+  // Swup replaces the page content without a full reload. The previous
+  // GLightbox instance is destroyed in cleanupCurrentPage(), so bind the
+  // shared .popup pipeline to the newly inserted cover/body images here.
+  imgPopup();
 });
 
 window.krosaSwup = swup;
