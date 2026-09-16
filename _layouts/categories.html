@@ -15,21 +15,13 @@ layout: page
     height: calc(var(--folder-tab-base-height) + var(--folder-tab-extra-height)) !important;
     padding-bottom: calc(var(--folder-tab-base-padding-bottom) + var(--folder-tab-extra-height)) !important;
     margin-bottom: calc(var(--folder-tab-base-margin-bottom) - var(--folder-tab-extra-height)) !important;
-    /*
-     * 不再用 transform 做页签位移。
-     * 主题本身在 hover/focus 状态也会写 transform；V4/V4.1 使用
-     * transform 后会被高优先级 hover 规则覆盖，导致选中页签突然下坠、
-     * 横向位移中断，看起来像“飞起来/断层”。
-     *
-     * 改回独立的 translate 属性。translate 可以和主题自己的 transform
-     * 同时存在，因此既保留主题动效，又不会丢掉我们的 x/y 位移。
-     */
+    --folder-tab-selected-lift: 0px;
     translate:
       var(--folder-tab-shift-x, 0px)
-      calc(0px - var(--folder-tab-extra-height)) !important;
+      calc(0px - var(--folder-tab-extra-height) - var(--folder-tab-selected-lift));
     will-change: translate;
     transition:
-      translate 260ms cubic-bezier(0.22, 1, 0.36, 1),
+      translate 240ms cubic-bezier(0.22, 1, 0.36, 1),
       box-shadow 180ms ease,
       border-color 180ms ease;
 
@@ -72,10 +64,6 @@ layout: page
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
     text-decoration: none !important;
-
-    /* 主题原有 hover/focus 会再次写 transform，叠加后会让当前页签突然上浮。
-       页签的位置只交给独立的 translate 属性控制。 */
-    transform: none !important;
   }
 
   .category-folder-tab.category-folder-tab--enhanced > i,
@@ -103,16 +91,28 @@ layout: page
   }
 
 
+  /* 只有真正选中的文件夹轻微抬高；不是 hover 临时抬高。 */
+  .category-folder.is-selected
+    .category-folder-tab.category-folder-tab--enhanced {
+    --folder-tab-selected-lift: 7px;
+    box-shadow:
+      0 10px 22px rgba(15, 24, 31, 0.24),
+      inset 0 1px 0 rgb(var(--folder-glass-rgb) / 0.98),
+      inset 0 -1px 0 rgba(10, 20, 28, 0.18);
+  }
+
   /*
-   * 文件夹切换时旧内容先淡出、新内容再淡入。
-   * 原样式的 visibility 会立即切换，容易产生“断层”。
+   * 切换内容时让旧卡片先淡出，再隐藏。
+   * 避免 visibility 立刻消失造成“断层”。
    */
-  .category-folders.glass-layers-ready .category-folder .category-folder-sheet {
+  .category-folders.glass-layers-ready
+    .category-folder
+    .category-folder-sheet {
     transition:
-      opacity 240ms cubic-bezier(0.22, 1, 0.36, 1),
-      transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
-      filter 280ms cubic-bezier(0.22, 1, 0.36, 1),
-      visibility 0s linear 240ms;
+      opacity 190ms ease,
+      filter 220ms ease,
+      transform 220ms ease,
+      visibility 0s linear 190ms;
   }
 
   .category-folders.glass-layers-ready
@@ -122,22 +122,11 @@ layout: page
     transition-delay: 0s;
   }
 
-  .category-folders.is-tab-measuring .category-folder-tab.category-folder-tab--enhanced {
-    transition: none !important;
-  }
-
-
-  /*
-   * 内容板真正的层级由 sheet 自身控制。
-   * 原主题使用 --folder-layer 给每张 sheet 排层，第一项天生最高；
-   * 只提高 <section> 的 z-index 并不能覆盖这个规则。
-   * 因此明确给当前 front/back sheet 设置层级。
-   */
+  /* 当前内容层级明确高于背景内容，防止第一张卡片继续盖住选中项。 */
   .category-folders.glass-layers-ready
     .category-folder.is-glass-front
     .category-folder-sheet {
-    z-index: 320 !important;
-    visibility: visible !important;
+    z-index: 30 !important;
     opacity: 1 !important;
     pointer-events: auto !important;
   }
@@ -145,8 +134,7 @@ layout: page
   .category-folders.glass-layers-ready
     .category-folder.is-glass-back
     .category-folder-sheet {
-    z-index: 310 !important;
-    visibility: visible !important;
+    z-index: 20 !important;
     opacity: 1 !important;
     pointer-events: none !important;
   }
@@ -155,25 +143,13 @@ layout: page
     .category-folder:not(.is-glass-front):not(.is-glass-back)
     .category-folder-sheet {
     z-index: 0 !important;
+    pointer-events: none !important;
   }
 
-  .category-folder.is-glass-front
+  /* FLIP 测量阶段禁止过渡；同一帧完成，用户看不到这一状态。 */
+  .category-folders.is-layout-snap
     .category-folder-tab.category-folder-tab--enhanced {
-    z-index: 420 !important;
-  }
-
-  /*
-   * 多张带 backdrop-filter 的彩色页签同时移动是这一页最明显的卡顿源。
-   * 只在 220ms 的重排阶段暂停页签 blur；颜色、透明度、描边和高光仍保留。
-   */
-  .category-folders.is-reordering
-    .category-folder-tab.category-folder-tab--enhanced {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-    transition:
-      translate 220ms cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 140ms ease,
-      border-color 140ms ease;
+    transition: none !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -222,7 +198,7 @@ layout: page
         <a
           class="category-folder-tab"
           href="{{ category_url | relative_url }}"
-          aria-label="选择分类：{{ category_name }}"
+          aria-label="打开分类：{{ category_name }}"
         >
           <i class="far fa-folder-open fa-fw" aria-hidden="true"></i>
           <span>{{ category_name }}</span>
@@ -271,30 +247,316 @@ layout: page
     var cleanupController = new AbortController();
     var cleanupSignal = cleanupController.signal;
     var resizeObserver = null;
+    var collapseTimer = null;
     var layoutFrame = null;
-    var resetTimer = null;
-    var reorderTimer = null;
 
-    window.krosaPageCleanup = function () {
-      cleanupController.abort();
+    var originalOrder = Array.prototype.slice.call(
+      container.querySelectorAll('.category-folder')
+    );
+
+    if (!originalOrder.length) return;
+
+    var extraTabHeight = 26;
+    var activeFolder = null;
+
+    function currentFolders() {
+      return Array.prototype.slice.call(
+        container.querySelectorAll('.category-folder')
+      );
+    }
+
+    function currentTabs() {
+      return currentFolders().map(function (folder) {
+        return folder.querySelector('.category-folder-tab');
+      });
+    }
+
+    function clearCollapseTimer() {
+      if (collapseTimer !== null) {
+        window.clearTimeout(collapseTimer);
+        collapseTimer = null;
+      }
+    }
+
+    function setupTabs() {
+      originalOrder.forEach(function (folder) {
+        var tab = folder.querySelector('.category-folder-tab');
+        if (!tab) return;
+
+        var style = window.getComputedStyle(tab);
+        var rect = tab.getBoundingClientRect();
+        var paddingBottom = parseFloat(style.paddingBottom) || 0;
+        var marginBottom = parseFloat(style.marginBottom) || 0;
+
+        tab.style.setProperty('--folder-tab-base-height', rect.height + 'px');
+        tab.style.setProperty(
+          '--folder-tab-base-padding-bottom',
+          paddingBottom + 'px'
+        );
+        tab.style.setProperty(
+          '--folder-tab-base-margin-bottom',
+          marginBottom + 'px'
+        );
+        tab.style.setProperty(
+          '--folder-tab-extra-height',
+          extraTabHeight + 'px'
+        );
+        tab.style.setProperty('--folder-tab-shift-x', '0px');
+        tab.classList.add('category-folder-tab--enhanced');
+      });
+    }
+
+    /*
+     * DOM 顺序就是层级顺序。
+     * 第一项 = 当前卡片，第二项 = 背景卡片。
+     * 同时重写原来的 --folder-layer，避免旧的第一项继续拥有最高层级。
+     */
+    function syncLayers() {
+      var folders = currentFolders();
+      var count = folders.length;
+
+      folders.forEach(function (folder, index) {
+        var layer = count - index;
+        folder.style.setProperty('--folder-layer', layer);
+        folder.style.setProperty('--folder-tab-layer', layer + 100);
+
+        folder.classList.remove(
+          'is-glass-front',
+          'is-glass-back',
+          'is-selected'
+        );
+        folder.removeAttribute('data-folder-layer-state');
+        folder.style.removeProperty('z-index');
+      });
+
+      if (folders[0]) {
+        folders[0].classList.add('is-glass-front');
+        if (activeFolder === folders[0]) {
+          folders[0].classList.add('is-selected');
+        }
+      }
+
+      if (folders[1]) {
+        folders[1].classList.add('is-glass-back');
+      }
+
+      container.classList.add('glass-layers-ready');
+    }
+
+    /*
+     * 计算“舒展排列”。
+     * 宽度够时 0 重叠；只有真的放不下才压缩。
+     */
+    function calculateTargetShifts() {
+      var tabs = currentTabs();
+      var shifts = new Map();
+
+      if (!tabs.length) return shifts;
+
+      tabs.forEach(function (tab) {
+        tab.style.setProperty('--folder-tab-shift-x', '0px');
+      });
+
+      var rects = tabs.map(function (tab) {
+        return tab.getBoundingClientRect();
+      });
+
+      if (tabs.length === 1) {
+        shifts.set(tabs[0], 0);
+        return shifts;
+      }
+
+      var containerRect = container.getBoundingClientRect();
+      var firstLeft = rects[0].left;
+      var available = Math.max(0, containerRect.right - firstLeft - 8);
+      var widths = rects.map(function (rect) {
+        return rect.width;
+      });
+
+      var widthSum = widths.reduce(function (sum, width) {
+        return sum + width;
+      }, 0);
+
+      var overlapNeeded =
+        (widthSum - available) / Math.max(1, tabs.length - 1);
+      var overlap = Math.max(0, overlapNeeded);
+      var minimumVisible =
+        window.matchMedia('(max-width: 640px)').matches ? 32 : 44;
+
+      var steps = widths.slice(0, -1).map(function (width) {
+        return Math.max(minimumVisible, width - overlap);
+      });
+
+      var total =
+        widths[widths.length - 1] +
+        steps.reduce(function (sum, step) {
+          return sum + step;
+        }, 0);
+
+      if (total > available) {
+        var equalStep = Math.max(
+          26,
+          (available - widths[widths.length - 1]) /
+            Math.max(1, tabs.length - 1)
+        );
+
+        steps = steps.map(function () {
+          return equalStep;
+        });
+      }
+
+      var desiredLeft = firstLeft;
+
+      tabs.forEach(function (tab, index) {
+        shifts.set(tab, desiredLeft - rects[index].left);
+
+        if (index < steps.length) {
+          desiredLeft += steps[index];
+        }
+      });
+
+      return shifts;
+    }
+
+    function setShifts(shifts) {
+      shifts.forEach(function (shift, tab) {
+        tab.style.setProperty('--folder-tab-shift-x', shift + 'px');
+      });
+    }
+
+    /*
+     * FLIP：
+     * 1. 记住点击前每个标签的屏幕位置；
+     * 2. 真正重排 DOM；
+     * 3. 用临时 shift 把它们“放回旧位置”；
+     * 4. 下一帧动画到新位置。
+     *
+     * 这样卡片层级跟 DOM 一致，不再需要猜 z-index；
+     * 标签也不会先跳一下再开始动画。
+     */
+    function reorderWithAnimation(order, selectedFolder) {
+      var oldRects = new Map();
+
+      currentTabs().forEach(function (tab) {
+        oldRects.set(tab, tab.getBoundingClientRect());
+      });
+
+      container.classList.add('is-layout-snap');
+
+      order.forEach(function (folder) {
+        container.appendChild(folder);
+      });
+
+      activeFolder = selectedFolder || null;
+      syncLayers();
+
+      var tabs = currentTabs();
+
+      tabs.forEach(function (tab) {
+        tab.style.setProperty('--folder-tab-shift-x', '0px');
+      });
+
+      /* 强制一次布局，只在点击时发生，6 个标签的代价很小。 */
+      var baseRects = new Map();
+      tabs.forEach(function (tab) {
+        baseRects.set(tab, tab.getBoundingClientRect());
+      });
+
+      var targetShifts = calculateTargetShifts();
+
+      /*
+       * calculateTargetShifts() 为了测量会把 shift 归零，
+       * 此处重新读取归零后的 base 位置，并计算“旧画面补偿量”。
+       */
+      tabs.forEach(function (tab) {
+        var oldRect = oldRects.get(tab);
+        var baseRect = baseRects.get(tab);
+        if (!oldRect || !baseRect) return;
+
+        tab.style.setProperty(
+          '--folder-tab-shift-x',
+          oldRect.left - baseRect.left + 'px'
+        );
+      });
+
+      /* 确保浏览器登记了起点。 */
+      container.getBoundingClientRect();
 
       if (layoutFrame !== null) {
         window.cancelAnimationFrame(layoutFrame);
       }
 
-      if (resetTimer !== null) {
-        window.clearTimeout(resetTimer);
+      layoutFrame = window.requestAnimationFrame(function () {
+        layoutFrame = null;
+        container.classList.remove('is-layout-snap');
+
+        /*
+         * 选中态也在这一帧才加，使 7px 抬升和横向移动一起发生。
+         */
+        currentFolders().forEach(function (folder) {
+          folder.classList.toggle(
+            'is-selected',
+            Boolean(activeFolder && folder === activeFolder)
+          );
+        });
+
+        setShifts(targetShifts);
+      });
+    }
+
+    function promoteFolder(folder) {
+      clearCollapseTimer();
+
+      if (activeFolder === folder) {
+        restoreDefault();
+        return;
       }
 
-      if (reorderTimer !== null) {
-        window.clearTimeout(reorderTimer);
+      var order = [folder].concat(
+        originalOrder.filter(function (item) {
+          return item !== folder;
+        })
+      );
+
+      reorderWithAnimation(order, folder);
+    }
+
+    function restoreDefault() {
+      clearCollapseTimer();
+
+      if (!activeFolder) {
+        syncLayers();
+        layoutWithoutAnimation();
+        return;
       }
 
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-    };
+      reorderWithAnimation(originalOrder.slice(), null);
+    }
 
+    function layoutWithoutAnimation() {
+      container.classList.add('is-layout-snap');
+
+      var shifts = calculateTargetShifts();
+      setShifts(shifts);
+
+      window.requestAnimationFrame(function () {
+        container.classList.remove('is-layout-snap');
+      });
+    }
+
+    function scheduleRestore() {
+      clearCollapseTimer();
+
+      collapseTimer = window.setTimeout(function () {
+        collapseTimer = null;
+
+        if (!container.matches(':hover')) {
+          restoreDefault();
+        }
+      }, 180);
+    }
+
+    /* 顶部“分类菜单”原有逻辑保留。 */
     var menuToggle = document.getElementById('category-menu-toggle');
     var quickMenu = document.getElementById('category-quick-menu');
     var quickPicker = document.querySelector('.category-quick-picker');
@@ -318,7 +580,9 @@ layout: page
       document.addEventListener(
         'click',
         function (event) {
-          if (!quickPicker.contains(event.target)) setMenuOpen(false);
+          if (!quickPicker.contains(event.target)) {
+            setMenuOpen(false);
+          }
         },
         { signal: cleanupSignal }
       );
@@ -338,270 +602,18 @@ layout: page
       );
     }
 
-    var folders = Array.prototype.slice.call(
-      container.querySelectorAll('.category-folder')
-    );
-    var tabs = folders.map(function (folder) {
-      return folder.querySelector('.category-folder-tab');
-    });
+    setupTabs();
+    syncLayers();
+    layoutWithoutAnimation();
 
-    if (!folders.length || tabs.some(function (tab) { return !tab; })) return;
+    originalOrder.forEach(function (folder) {
+      var tab = folder.querySelector('.category-folder-tab');
+      if (!tab) return;
 
-    var extraTabHeight = 26;
-    var activeFolder = null;
-    var visualOrder = folders.slice();
-
-    /*
-     * 只保存“没有 translate 时”的原始几何。
-     * 点击切换时不再重新 getBoundingClientRect()，避免读写布局交替造成卡顿，
-     * 也不会在上一次动画尚未结束时读到中间态位置。
-     */
-    var baseLeft = new Map();
-    var tabWidth = new Map();
-    var lastContainerWidth = 0;
-
-    tabs.forEach(function (tab) {
-      var style = window.getComputedStyle(tab);
-      var rect = tab.getBoundingClientRect();
-      var paddingBottom = parseFloat(style.paddingBottom) || 0;
-      var marginBottom = parseFloat(style.marginBottom) || 0;
-
-      tab.style.setProperty('--folder-tab-base-height', rect.height + 'px');
-      tab.style.setProperty(
-        '--folder-tab-base-padding-bottom',
-        paddingBottom + 'px'
+      tab.setAttribute(
+        'aria-label',
+        '选择分类：' + String(tab.textContent || '').trim()
       );
-      tab.style.setProperty(
-        '--folder-tab-base-margin-bottom',
-        marginBottom + 'px'
-      );
-      tab.style.setProperty('--folder-tab-extra-height', extraTabHeight + 'px');
-      tab.style.setProperty('--folder-tab-shift-x', '0px');
-      tab.classList.add('category-folder-tab--enhanced');
-    });
-
-    function clearReset() {
-      if (resetTimer !== null) {
-        window.clearTimeout(resetTimer);
-        resetTimer = null;
-      }
-    }
-
-    function clearReorderTimer() {
-      if (reorderTimer !== null) {
-        window.clearTimeout(reorderTimer);
-        reorderTimer = null;
-      }
-    }
-
-    function beginReorder() {
-      clearReorderTimer();
-      container.classList.add('is-reordering');
-
-      reorderTimer = window.setTimeout(function () {
-        reorderTimer = null;
-        container.classList.remove('is-reordering');
-      }, 250);
-    }
-
-    function updateGlassLayers(frontFolder) {
-      var front = frontFolder || folders[0];
-      var frontIndex = visualOrder.indexOf(front);
-
-      if (frontIndex < 0) frontIndex = 0;
-
-      var back =
-        visualOrder.length > 1
-          ? visualOrder[(frontIndex + 1) % visualOrder.length]
-          : null;
-
-      folders.forEach(function (folder) {
-        folder.classList.remove('is-glass-front', 'is-glass-back');
-        folder.removeAttribute('data-folder-layer-state');
-      });
-
-      if (front) {
-        front.classList.add('is-glass-front');
-        front.setAttribute('data-folder-layer-state', 'raised');
-      }
-
-      if (back) back.classList.add('is-glass-back');
-
-      container.classList.add('glass-layers-ready');
-    }
-
-    function measureBaseGeometry() {
-      container.classList.add('is-tab-measuring');
-
-      /*
-       * 先归零。这里只在首次、字体完成或容器实际宽度变化时执行，
-       * 不会在每次点击时执行。
-       */
-      tabs.forEach(function (tab) {
-        tab.style.setProperty('--folder-tab-shift-x', '0px');
-      });
-
-      var rects = tabs.map(function (tab) {
-        return tab.getBoundingClientRect();
-      });
-
-      tabs.forEach(function (tab, index) {
-        baseLeft.set(tab, rects[index].left);
-        tabWidth.set(tab, rects[index].width);
-      });
-
-      lastContainerWidth = container.getBoundingClientRect().width;
-
-      window.requestAnimationFrame(function () {
-        container.classList.remove('is-tab-measuring');
-        applyVisualOrder(false);
-      });
-    }
-
-    function calculateTargets(order) {
-      var targets = new Map();
-      var firstTab = tabs[0];
-
-      if (!baseLeft.has(firstTab)) return targets;
-
-      var firstLeft = baseLeft.get(firstTab);
-      var containerRect = container.getBoundingClientRect();
-      var available = Math.max(0, containerRect.right - firstLeft - 8);
-      var widths = order.map(function (folder) {
-        return tabWidth.get(folder.querySelector('.category-folder-tab')) || 0;
-      });
-      var count = order.length;
-
-      if (count === 1) {
-        targets.set(order[0], firstLeft);
-        return targets;
-      }
-
-      var widthSum = widths.reduce(function (sum, width) {
-        return sum + width;
-      }, 0);
-
-      /* 空间足够就自然并排；真的放不下时才开始重叠。 */
-      var overlapNeeded = (widthSum - available) / (count - 1);
-      var overlap = Math.max(0, overlapNeeded);
-      var minimumVisible =
-        window.matchMedia('(max-width: 640px)').matches ? 32 : 44;
-
-      var steps = widths.slice(0, -1).map(function (width) {
-        return Math.max(minimumVisible, width - overlap);
-      });
-
-      var total =
-        widths[count - 1] +
-        steps.reduce(function (sum, step) {
-          return sum + step;
-        }, 0);
-
-      if (total > available) {
-        var equalStep = Math.max(
-          26,
-          (available - widths[count - 1]) / (count - 1)
-        );
-
-        steps = steps.map(function () {
-          return equalStep;
-        });
-      }
-
-      var desiredLeft = firstLeft;
-
-      order.forEach(function (folder, index) {
-        targets.set(folder, desiredLeft);
-
-        if (index < steps.length) {
-          desiredLeft += steps[index];
-        }
-      });
-
-      return targets;
-    }
-
-    function applyVisualOrder(animate) {
-      if (!baseLeft.size) return;
-
-      var targets = calculateTargets(visualOrder);
-
-      if (layoutFrame !== null) {
-        window.cancelAnimationFrame(layoutFrame);
-      }
-
-      if (animate) beginReorder();
-
-      layoutFrame = window.requestAnimationFrame(function () {
-        layoutFrame = null;
-
-        folders.forEach(function (folder) {
-          var tab = folder.querySelector('.category-folder-tab');
-          var targetLeft = targets.get(folder);
-          var originalLeft = baseLeft.get(tab);
-
-          if (
-            typeof targetLeft !== 'number' ||
-            typeof originalLeft !== 'number'
-          ) {
-            return;
-          }
-
-          tab.style.setProperty(
-            '--folder-tab-shift-x',
-            targetLeft - originalLeft + 'px'
-          );
-        });
-      });
-    }
-
-    function promoteFolder(folder) {
-      clearReset();
-
-      if (activeFolder === folder) {
-        collapseToDefault();
-        return;
-      }
-
-      activeFolder = folder;
-      visualOrder = [folder].concat(
-        folders.filter(function (item) {
-          return item !== folder;
-        })
-      );
-
-      /*
-       * 先切内容层级，再开始页签动画。
-       * 这样不会出现“第三项已飞到前面，但第一项内容仍盖在最上层”。
-       */
-      updateGlassLayers(folder);
-      applyVisualOrder(true);
-    }
-
-    function collapseToDefault() {
-      clearReset();
-
-      activeFolder = null;
-      visualOrder = folders.slice();
-
-      updateGlassLayers(folders[0]);
-      applyVisualOrder(true);
-    }
-
-    function scheduleCollapse(delay) {
-      clearReset();
-
-      resetTimer = window.setTimeout(function () {
-        resetTimer = null;
-
-        if (!container.matches(':hover')) {
-          collapseToDefault();
-        }
-      }, typeof delay === 'number' ? delay : 180);
-    }
-
-    tabs.forEach(function (tab, index) {
-      var folder = folders[index];
 
       tab.addEventListener(
         'click',
@@ -617,11 +629,8 @@ layout: page
           }
 
           event.preventDefault();
-          event.stopPropagation();
-
           promoteFolder(folder);
 
-          /* 鼠标点击后不保留 :focus-within，避免和 hover 状态叠加。 */
           if (event.detail > 0 && typeof tab.blur === 'function') {
             tab.blur();
           }
@@ -633,16 +642,14 @@ layout: page
     container.addEventListener(
       'pointerenter',
       function () {
-        clearReset();
+        clearCollapseTimer();
       },
       { signal: cleanupSignal }
     );
 
     container.addEventListener(
       'pointerleave',
-      function () {
-        scheduleCollapse(180);
-      },
+      scheduleRestore,
       { signal: cleanupSignal }
     );
 
@@ -650,7 +657,7 @@ layout: page
       'pointerdown',
       function (event) {
         if (activeFolder && !container.contains(event.target)) {
-          collapseToDefault();
+          restoreDefault();
         }
       },
       { signal: cleanupSignal }
@@ -660,48 +667,50 @@ layout: page
       'keydown',
       function (event) {
         if (event.key === 'Escape' && activeFolder) {
-          collapseToDefault();
+          restoreDefault();
         }
       },
       { signal: cleanupSignal }
     );
 
-    /* 初始状态 */
-    updateGlassLayers(folders[0]);
-    measureBaseGeometry();
-
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () {
         if (!cleanupSignal.aborted) {
-          measureBaseGeometry();
+          setupTabs();
+          layoutWithoutAnimation();
         }
       });
     }
 
     if ('ResizeObserver' in window) {
       resizeObserver = new ResizeObserver(function () {
-        if (cleanupSignal.aborted) return;
-
-        var width = container.getBoundingClientRect().width;
-
-        /* translate 不改变容器布局，因此只在真实宽度变化时重测。 */
-        if (Math.abs(width - lastContainerWidth) > 1) {
-          measureBaseGeometry();
+        if (!cleanupSignal.aborted) {
+          layoutWithoutAnimation();
         }
       });
-
       resizeObserver.observe(container);
     } else {
       window.addEventListener(
         'resize',
-        function () {
-          measureBaseGeometry();
-        },
+        layoutWithoutAnimation,
         {
           passive: true,
           signal: cleanupSignal
         }
       );
     }
+
+    window.krosaPageCleanup = function () {
+      cleanupController.abort();
+      clearCollapseTimer();
+
+      if (layoutFrame !== null) {
+        window.cancelAnimationFrame(layoutFrame);
+      }
+
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
   })();
 </script>
