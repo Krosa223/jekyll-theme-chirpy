@@ -72,6 +72,10 @@ layout: page
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
     text-decoration: none !important;
+
+    /* 主题原有 hover/focus 会再次写 transform，叠加后会让当前页签突然上浮。
+       页签的位置只交给独立的 translate 属性控制。 */
+    transform: none !important;
   }
 
   .category-folder-tab.category-folder-tab--enhanced > i,
@@ -120,6 +124,56 @@ layout: page
 
   .category-folders.is-tab-measuring .category-folder-tab.category-folder-tab--enhanced {
     transition: none !important;
+  }
+
+
+  /*
+   * 内容板真正的层级由 sheet 自身控制。
+   * 原主题使用 --folder-layer 给每张 sheet 排层，第一项天生最高；
+   * 只提高 <section> 的 z-index 并不能覆盖这个规则。
+   * 因此明确给当前 front/back sheet 设置层级。
+   */
+  .category-folders.glass-layers-ready
+    .category-folder.is-glass-front
+    .category-folder-sheet {
+    z-index: 320 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  .category-folders.glass-layers-ready
+    .category-folder.is-glass-back
+    .category-folder-sheet {
+    z-index: 310 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  .category-folders.glass-layers-ready
+    .category-folder:not(.is-glass-front):not(.is-glass-back)
+    .category-folder-sheet {
+    z-index: 0 !important;
+  }
+
+  .category-folder.is-glass-front
+    .category-folder-tab.category-folder-tab--enhanced {
+    z-index: 420 !important;
+  }
+
+  /*
+   * 多张带 backdrop-filter 的彩色页签同时移动是这一页最明显的卡顿源。
+   * 只在 220ms 的重排阶段暂停页签 blur；颜色、透明度、描边和高光仍保留。
+   */
+  .category-folders.is-reordering
+    .category-folder-tab.category-folder-tab--enhanced {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    transition:
+      translate 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 140ms ease,
+      border-color 140ms ease;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -219,8 +273,7 @@ layout: page
     var resizeObserver = null;
     var layoutFrame = null;
     var resetTimer = null;
-    var transitionTimer = null;
-    var states = new WeakMap();
+    var reorderTimer = null;
 
     window.krosaPageCleanup = function () {
       cleanupController.abort();
@@ -233,20 +286,13 @@ layout: page
         window.clearTimeout(resetTimer);
       }
 
-      if (transitionTimer !== null) {
-        window.clearTimeout(transitionTimer);
+      if (reorderTimer !== null) {
+        window.clearTimeout(reorderTimer);
       }
 
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
-
-      container.querySelectorAll('.category-folder').forEach(function (folder) {
-        var state = states.get(folder);
-        if (state && state.resetTimer !== null) {
-          window.clearTimeout(state.resetTimer);
-        }
-      });
     };
 
     var menuToggle = document.getElementById('category-menu-toggle');
@@ -261,46 +307,60 @@ layout: page
     }
 
     if (menuToggle && quickMenu && quickPicker) {
-      menuToggle.addEventListener('click', function () {
-        setMenuOpen(menuToggle.getAttribute('aria-expanded') !== 'true');
-      }, { signal: cleanupSignal });
+      menuToggle.addEventListener(
+        'click',
+        function () {
+          setMenuOpen(menuToggle.getAttribute('aria-expanded') !== 'true');
+        },
+        { signal: cleanupSignal }
+      );
 
-      document.addEventListener('click', function (event) {
-        if (!quickPicker.contains(event.target)) setMenuOpen(false);
-      }, { signal: cleanupSignal });
+      document.addEventListener(
+        'click',
+        function (event) {
+          if (!quickPicker.contains(event.target)) setMenuOpen(false);
+        },
+        { signal: cleanupSignal }
+      );
 
-      document.addEventListener('keydown', function (event) {
-        if (
-          event.key === 'Escape' &&
-          menuToggle.getAttribute('aria-expanded') === 'true'
-        ) {
-          setMenuOpen(false);
-          menuToggle.focus();
-        }
-      }, { signal: cleanupSignal });
+      document.addEventListener(
+        'keydown',
+        function (event) {
+          if (
+            event.key === 'Escape' &&
+            menuToggle.getAttribute('aria-expanded') === 'true'
+          ) {
+            setMenuOpen(false);
+            menuToggle.focus();
+          }
+        },
+        { signal: cleanupSignal }
+      );
     }
 
-    var originalFolders = Array.prototype.slice.call(
+    var folders = Array.prototype.slice.call(
       container.querySelectorAll('.category-folder')
     );
-    var originalTabs = originalFolders.map(function (folder) {
+    var tabs = folders.map(function (folder) {
       return folder.querySelector('.category-folder-tab');
     });
 
-    if (
-      !originalFolders.length ||
-      originalTabs.some(function (tab) { return !tab; })
-    ) {
-      return;
-    }
+    if (!folders.length || tabs.some(function (tab) { return !tab; })) return;
 
     var extraTabHeight = 26;
-    var topLayer = 10000 + originalFolders.length;
     var activeFolder = null;
-    var visualOrder = originalFolders.slice();
-    var geometry = new Map();
+    var visualOrder = folders.slice();
 
-    originalTabs.forEach(function (tab) {
+    /*
+     * 只保存“没有 translate 时”的原始几何。
+     * 点击切换时不再重新 getBoundingClientRect()，避免读写布局交替造成卡顿，
+     * 也不会在上一次动画尚未结束时读到中间态位置。
+     */
+    var baseLeft = new Map();
+    var tabWidth = new Map();
+    var lastContainerWidth = 0;
+
+    tabs.forEach(function (tab) {
       var style = window.getComputedStyle(tab);
       var rect = tab.getBoundingClientRect();
       var paddingBottom = parseFloat(style.paddingBottom) || 0;
@@ -320,159 +380,97 @@ layout: page
       tab.classList.add('category-folder-tab--enhanced');
     });
 
-    function getState(folder) {
-      var state = states.get(folder);
-      if (state) return state;
-
-      state = {
-        originalInlineZIndex: folder.style.zIndex,
-        resetTimer: null
-      };
-      states.set(folder, state);
-      return state;
-    }
-
-    function clearFolderReset(folder) {
-      var state = getState(folder);
-
-      if (state.resetTimer !== null) {
-        window.clearTimeout(state.resetTimer);
-        state.resetTimer = null;
-      }
-    }
-
-    function restoreZIndex(folder) {
-      var state = getState(folder);
-
-      clearFolderReset(folder);
-
-      if (state.originalInlineZIndex) {
-        folder.style.zIndex = state.originalInlineZIndex;
-      } else {
-        folder.style.removeProperty('z-index');
-      }
-
-      folder.removeAttribute('data-folder-layer-state');
-    }
-
-    function clearGlobalReset() {
+    function clearReset() {
       if (resetTimer !== null) {
         window.clearTimeout(resetTimer);
         resetTimer = null;
       }
     }
 
+    function clearReorderTimer() {
+      if (reorderTimer !== null) {
+        window.clearTimeout(reorderTimer);
+        reorderTimer = null;
+      }
+    }
+
+    function beginReorder() {
+      clearReorderTimer();
+      container.classList.add('is-reordering');
+
+      reorderTimer = window.setTimeout(function () {
+        reorderTimer = null;
+        container.classList.remove('is-reordering');
+      }, 250);
+    }
+
     function updateGlassLayers(frontFolder) {
-      var front = frontFolder || originalFolders[0];
+      var front = frontFolder || folders[0];
       var frontIndex = visualOrder.indexOf(front);
 
-      if (frontIndex < 0) {
-        frontIndex = 0;
-      }
+      if (frontIndex < 0) frontIndex = 0;
 
-      var back = visualOrder.length > 1
-        ? visualOrder[(frontIndex + 1) % visualOrder.length]
-        : null;
+      var back =
+        visualOrder.length > 1
+          ? visualOrder[(frontIndex + 1) % visualOrder.length]
+          : null;
 
-      originalFolders.forEach(function (folder) {
+      folders.forEach(function (folder) {
         folder.classList.remove('is-glass-front', 'is-glass-back');
+        folder.removeAttribute('data-folder-layer-state');
       });
 
-      if (front) front.classList.add('is-glass-front');
+      if (front) {
+        front.classList.add('is-glass-front');
+        front.setAttribute('data-folder-layer-state', 'raised');
+      }
+
       if (back) back.classList.add('is-glass-back');
 
       container.classList.add('glass-layers-ready');
     }
 
-    function raiseFolder(folder) {
-      clearFolderReset(folder);
-      topLayer += 1;
-      folder.style.zIndex = String(topLayer);
-      folder.setAttribute('data-folder-layer-state', 'raised');
-      updateGlassLayers(folder);
-    }
+    function measureBaseGeometry() {
+      container.classList.add('is-tab-measuring');
 
-    function parseTime(value) {
-      value = String(value || '').trim();
-      if (!value) return 0;
-      if (value.slice(-2) === 'ms') return parseFloat(value) || 0;
-      if (value.slice(-1) === 's') return (parseFloat(value) || 0) * 1000;
-      return parseFloat(value) || 0;
-    }
+      /*
+       * 先归零。这里只在首次、字体完成或容器实际宽度变化时执行，
+       * 不会在每次点击时执行。
+       */
+      tabs.forEach(function (tab) {
+        tab.style.setProperty('--folder-tab-shift-x', '0px');
+      });
 
-    function longestTransition(element) {
-      if (!element) return 0;
+      var rects = tabs.map(function (tab) {
+        return tab.getBoundingClientRect();
+      });
 
-      var style = window.getComputedStyle(element);
-      var durations = String(style.transitionDuration || '0s')
-        .split(',')
-        .map(parseTime);
-      var delays = String(style.transitionDelay || '0s')
-        .split(',')
-        .map(parseTime);
-      var count = Math.max(durations.length, delays.length);
-      var longest = 0;
+      tabs.forEach(function (tab, index) {
+        baseLeft.set(tab, rects[index].left);
+        tabWidth.set(tab, rects[index].width);
+      });
 
-      for (var i = 0; i < count; i += 1) {
-        longest = Math.max(
-          longest,
-          (durations[i % durations.length] || 0) +
-          (delays[i % delays.length] || 0)
-        );
-      }
+      lastContainerWidth = container.getBoundingClientRect().width;
 
-      return longest;
-    }
-
-    function lowerAfterMotion(folder) {
-      clearFolderReset(folder);
-      folder.setAttribute('data-folder-layer-state', 'lowering');
-
-      var reducedMotion =
-        window.matchMedia &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      var wait = reducedMotion
-        ? 0
-        : Math.max(
-            longestTransition(folder),
-            longestTransition(folder.querySelector('.category-folder-tab')),
-            longestTransition(folder.querySelector('.category-folder-sheet'))
-          );
-
-      getState(folder).resetTimer = window.setTimeout(function () {
-        if (!activeFolder) {
-          restoreZIndex(folder);
-          updateGlassLayers(originalFolders[0]);
-        }
-      }, wait + 24);
-    }
-
-    function measureGeometry() {
-      originalTabs.forEach(function (tab) {
-        var rect = tab.getBoundingClientRect();
-        var shift =
-          parseFloat(tab.style.getPropertyValue('--folder-tab-shift-x')) || 0;
-
-        geometry.set(tab, {
-          baseLeft: rect.left - shift,
-          width: rect.width
-        });
+      window.requestAnimationFrame(function () {
+        container.classList.remove('is-tab-measuring');
+        applyVisualOrder(false);
       });
     }
 
     function calculateTargets(order) {
-      var firstGeometry = geometry.get(originalTabs[0]);
-      if (!firstGeometry) return new Map();
+      var targets = new Map();
+      var firstTab = tabs[0];
 
+      if (!baseLeft.has(firstTab)) return targets;
+
+      var firstLeft = baseLeft.get(firstTab);
       var containerRect = container.getBoundingClientRect();
-      var firstLeft = firstGeometry.baseLeft;
       var available = Math.max(0, containerRect.right - firstLeft - 8);
       var widths = order.map(function (folder) {
-        return geometry.get(folder.querySelector('.category-folder-tab')).width;
+        return tabWidth.get(folder.querySelector('.category-folder-tab')) || 0;
       });
       var count = order.length;
-      var targets = new Map();
 
       if (count === 1) {
         targets.set(order[0], firstLeft);
@@ -482,12 +480,8 @@ layout: page
       var widthSum = widths.reduce(function (sum, width) {
         return sum + width;
       }, 0);
-      /*
-       * 空间足够时不再强制重叠。
-       * V4 这里固定 preferredOverlap=24，会导致初始状态即使有足够宽度，
-       * 也把所有页签向内挤 24px；而点击重排后由于宽度顺序变化，看起来反而更松。
-       * 现在只有在总宽度真的超出可用空间时才开始压缩。
-       */
+
+      /* 空间足够就自然并排；真的放不下时才开始重叠。 */
       var overlapNeeded = (widthSum - available) / (count - 1);
       var overlap = Math.max(0, overlapNeeded);
       var minimumVisible =
@@ -508,6 +502,7 @@ layout: page
           26,
           (available - widths[count - 1]) / (count - 1)
         );
+
         steps = steps.map(function () {
           return equalStep;
         });
@@ -526,87 +521,75 @@ layout: page
       return targets;
     }
 
-    function applyVisualOrder(order, animate) {
-      visualOrder = order.slice();
+    function applyVisualOrder(animate) {
+      if (!baseLeft.size) return;
+
+      var targets = calculateTargets(visualOrder);
 
       if (layoutFrame !== null) {
         window.cancelAnimationFrame(layoutFrame);
       }
 
-      measureGeometry();
-      var targets = calculateTargets(visualOrder);
-
-      if (!animate) {
-        container.classList.add('is-tab-measuring');
-      }
+      if (animate) beginReorder();
 
       layoutFrame = window.requestAnimationFrame(function () {
         layoutFrame = null;
 
-        originalFolders.forEach(function (folder) {
+        folders.forEach(function (folder) {
           var tab = folder.querySelector('.category-folder-tab');
-          var tabGeometry = geometry.get(tab);
           var targetLeft = targets.get(folder);
+          var originalLeft = baseLeft.get(tab);
 
-          if (!tabGeometry || typeof targetLeft !== 'number') return;
+          if (
+            typeof targetLeft !== 'number' ||
+            typeof originalLeft !== 'number'
+          ) {
+            return;
+          }
 
           tab.style.setProperty(
             '--folder-tab-shift-x',
-            targetLeft - tabGeometry.baseLeft + 'px'
+            targetLeft - originalLeft + 'px'
           );
         });
-
-        if (!animate) {
-          window.requestAnimationFrame(function () {
-            container.classList.remove('is-tab-measuring');
-          });
-        }
       });
     }
 
     function promoteFolder(folder) {
-      clearGlobalReset();
+      clearReset();
 
       if (activeFolder === folder) {
+        collapseToDefault();
         return;
       }
 
       activeFolder = folder;
       visualOrder = [folder].concat(
-        originalFolders.filter(function (item) {
+        folders.filter(function (item) {
           return item !== folder;
         })
       );
 
       /*
-       * 不修改 DOM、也不重排原始数组。
-       * 只计算新的视觉槽位，因此可以完整恢复到原收纳顺序。
+       * 先切内容层级，再开始页签动画。
+       * 这样不会出现“第三项已飞到前面，但第一项内容仍盖在最上层”。
        */
-      raiseFolder(folder);
-      applyVisualOrder(visualOrder, true);
+      updateGlassLayers(folder);
+      applyVisualOrder(true);
     }
 
     function collapseToDefault() {
-      clearGlobalReset();
-
-      if (!activeFolder) {
-        originalFolders.forEach(restoreZIndex);
-        visualOrder = originalFolders.slice();
-        updateGlassLayers(originalFolders[0]);
-        applyVisualOrder(visualOrder, true);
-        return;
-      }
+      clearReset();
 
       activeFolder = null;
-      visualOrder = originalFolders.slice();
+      visualOrder = folders.slice();
 
-      originalFolders.forEach(restoreZIndex);
-      updateGlassLayers(originalFolders[0]);
-      applyVisualOrder(visualOrder, true);
+      updateGlassLayers(folders[0]);
+      applyVisualOrder(true);
     }
 
     function scheduleCollapse(delay) {
-      clearGlobalReset();
+      clearReset();
 
       resetTimer = window.setTimeout(function () {
         resetTimer = null;
@@ -617,12 +600,8 @@ layout: page
       }, typeof delay === 'number' ? delay : 180);
     }
 
-    updateGlassLayers(originalFolders[0]);
-    measureGeometry();
-    applyVisualOrder(originalFolders, false);
-
-    originalFolders.forEach(function (folder) {
-      var tab = folder.querySelector('.category-folder-tab');
+    tabs.forEach(function (tab, index) {
+      var folder = folders[index];
 
       tab.addEventListener(
         'click',
@@ -640,65 +619,11 @@ layout: page
           event.preventDefault();
           event.stopPropagation();
 
-          if (activeFolder === folder) {
-            collapseToDefault();
-          } else {
-            promoteFolder(folder);
-          }
+          promoteFolder(folder);
 
-          /*
-           * 鼠标点击后不要让焦点一直“占住”文件夹，否则 pointerleave
-           * 之后仍会被 :focus-within 判定为展开状态。
-           * 键盘触发 click 时保留焦点，保证可访问性。
-           */
+          /* 鼠标点击后不保留 :focus-within，避免和 hover 状态叠加。 */
           if (event.detail > 0 && typeof tab.blur === 'function') {
             tab.blur();
-          }
-        },
-        { signal: cleanupSignal }
-      );
-
-      folder.addEventListener(
-        'pointerenter',
-        function () {
-          clearGlobalReset();
-
-          if (!activeFolder) {
-            raiseFolder(folder);
-          }
-        },
-        { signal: cleanupSignal }
-      );
-
-      folder.addEventListener(
-        'pointerleave',
-        function () {
-          if (!activeFolder && !folder.contains(document.activeElement)) {
-            lowerAfterMotion(folder);
-          }
-        },
-        { signal: cleanupSignal }
-      );
-
-      folder.addEventListener(
-        'focusin',
-        function () {
-          if (!activeFolder) {
-            raiseFolder(folder);
-          }
-        },
-        { signal: cleanupSignal }
-      );
-
-      folder.addEventListener(
-        'focusout',
-        function (event) {
-          if (
-            !activeFolder &&
-            !folder.contains(event.relatedTarget) &&
-            !folder.matches(':hover')
-          ) {
-            lowerAfterMotion(folder);
           }
         },
         { signal: cleanupSignal }
@@ -708,7 +633,7 @@ layout: page
     container.addEventListener(
       'pointerenter',
       function () {
-        clearGlobalReset();
+        clearReset();
       },
       { signal: cleanupSignal }
     );
@@ -716,10 +641,6 @@ layout: page
     container.addEventListener(
       'pointerleave',
       function () {
-        /*
-         * 鼠标离开整个文件夹区域后自动收纳回初始顺序。
-         * 给 180ms 缓冲，避免经过边缘时误触发。
-         */
         scheduleCollapse(180);
       },
       { signal: cleanupSignal }
@@ -745,21 +666,15 @@ layout: page
       { signal: cleanupSignal }
     );
 
+    /* 初始状态 */
+    updateGlassLayers(folders[0]);
+    measureBaseGeometry();
+
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () {
-        if (cleanupSignal.aborted) return;
-
-        measureGeometry();
-        applyVisualOrder(
-          activeFolder
-            ? [activeFolder].concat(
-                originalFolders.filter(function (folder) {
-                  return folder !== activeFolder;
-                })
-              )
-            : originalFolders,
-          false
-        );
+        if (!cleanupSignal.aborted) {
+          measureBaseGeometry();
+        }
       });
     }
 
@@ -767,17 +682,12 @@ layout: page
       resizeObserver = new ResizeObserver(function () {
         if (cleanupSignal.aborted) return;
 
-        measureGeometry();
-        applyVisualOrder(
-          activeFolder
-            ? [activeFolder].concat(
-                originalFolders.filter(function (folder) {
-                  return folder !== activeFolder;
-                })
-              )
-            : originalFolders,
-          false
-        );
+        var width = container.getBoundingClientRect().width;
+
+        /* translate 不改变容器布局，因此只在真实宽度变化时重测。 */
+        if (Math.abs(width - lastContainerWidth) > 1) {
+          measureBaseGeometry();
+        }
       });
 
       resizeObserver.observe(container);
@@ -785,17 +695,7 @@ layout: page
       window.addEventListener(
         'resize',
         function () {
-          measureGeometry();
-          applyVisualOrder(
-            activeFolder
-              ? [activeFolder].concat(
-                  originalFolders.filter(function (folder) {
-                    return folder !== activeFolder;
-                  })
-                )
-              : originalFolders,
-            false
-          );
+          measureBaseGeometry();
         },
         {
           passive: true,
