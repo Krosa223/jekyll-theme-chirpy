@@ -15,16 +15,21 @@ layout: page
     height: calc(var(--folder-tab-base-height) + var(--folder-tab-extra-height)) !important;
     padding-bottom: calc(var(--folder-tab-base-padding-bottom) + var(--folder-tab-extra-height)) !important;
     margin-bottom: calc(var(--folder-tab-base-margin-bottom) - var(--folder-tab-extra-height)) !important;
-    transform: translate3d(
-      var(--folder-tab-shift-x, 0px),
-      calc(0px - var(--folder-tab-extra-height)),
-      0
-    );
-    transform-origin: left bottom;
-    backface-visibility: hidden;
-    will-change: transform;
+    /*
+     * 不再用 transform 做页签位移。
+     * 主题本身在 hover/focus 状态也会写 transform；V4/V4.1 使用
+     * transform 后会被高优先级 hover 规则覆盖，导致选中页签突然下坠、
+     * 横向位移中断，看起来像“飞起来/断层”。
+     *
+     * 改回独立的 translate 属性。translate 可以和主题自己的 transform
+     * 同时存在，因此既保留主题动效，又不会丢掉我们的 x/y 位移。
+     */
+    translate:
+      var(--folder-tab-shift-x, 0px)
+      calc(0px - var(--folder-tab-extra-height)) !important;
+    will-change: translate;
     transition:
-      transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+      translate 260ms cubic-bezier(0.22, 1, 0.36, 1),
       box-shadow 180ms ease,
       border-color 180ms ease;
 
