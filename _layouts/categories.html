@@ -15,13 +15,10 @@ layout: page
     height: calc(var(--folder-tab-base-height) + var(--folder-tab-extra-height)) !important;
     padding-bottom: calc(var(--folder-tab-base-padding-bottom) + var(--folder-tab-extra-height)) !important;
     margin-bottom: calc(var(--folder-tab-base-margin-bottom) - var(--folder-tab-extra-height)) !important;
-    --folder-tab-selected-lift: 0px;
-    translate:
-      var(--folder-tab-shift-x, 0px)
-      calc(0px - var(--folder-tab-extra-height) - var(--folder-tab-selected-lift));
+    translate: var(--folder-tab-shift-x, 0px) calc(0px - var(--folder-tab-extra-height));
     will-change: translate;
     transition:
-      translate 240ms cubic-bezier(0.22, 1, 0.36, 1),
+      translate 260ms cubic-bezier(0.22, 1, 0.36, 1),
       box-shadow 180ms ease,
       border-color 180ms ease;
 
@@ -88,68 +85,6 @@ layout: page
       7px -3px 16px rgba(15, 24, 31, 0.22),
       inset 0 1px 0 rgb(var(--folder-glass-rgb) / 0.98),
       inset 0 -1px 0 rgba(10, 20, 28, 0.18);
-  }
-
-
-  /* 只有真正选中的文件夹轻微抬高；不是 hover 临时抬高。 */
-  .category-folder.is-selected
-    .category-folder-tab.category-folder-tab--enhanced {
-    --folder-tab-selected-lift: 7px;
-    box-shadow:
-      0 10px 22px rgba(15, 24, 31, 0.24),
-      inset 0 1px 0 rgb(var(--folder-glass-rgb) / 0.98),
-      inset 0 -1px 0 rgba(10, 20, 28, 0.18);
-  }
-
-  /*
-   * 切换内容时让旧卡片先淡出，再隐藏。
-   * 避免 visibility 立刻消失造成“断层”。
-   */
-  .category-folders.glass-layers-ready
-    .category-folder
-    .category-folder-sheet {
-    transition:
-      opacity 190ms ease,
-      filter 220ms ease,
-      transform 220ms ease,
-      visibility 0s linear 190ms;
-  }
-
-  .category-folders.glass-layers-ready
-    .category-folder:is(.is-glass-front, .is-glass-back)
-    .category-folder-sheet {
-    visibility: visible;
-    transition-delay: 0s;
-  }
-
-  /* 当前内容层级明确高于背景内容，防止第一张卡片继续盖住选中项。 */
-  .category-folders.glass-layers-ready
-    .category-folder.is-glass-front
-    .category-folder-sheet {
-    z-index: 30 !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-  }
-
-  .category-folders.glass-layers-ready
-    .category-folder.is-glass-back
-    .category-folder-sheet {
-    z-index: 20 !important;
-    opacity: 1 !important;
-    pointer-events: none !important;
-  }
-
-  .category-folders.glass-layers-ready
-    .category-folder:not(.is-glass-front):not(.is-glass-back)
-    .category-folder-sheet {
-    z-index: 0 !important;
-    pointer-events: none !important;
-  }
-
-  /* FLIP 测量阶段禁止过渡；同一帧完成，用户看不到这一状态。 */
-  .category-folders.is-layout-snap
-    .category-folder-tab.category-folder-tab--enhanced {
-    transition: none !important;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -247,462 +182,326 @@ layout: page
     var cleanupController = new AbortController();
     var cleanupSignal = cleanupController.signal;
     var resizeObserver = null;
-    var collapseTimer = null;
     var layoutFrame = null;
+    var states = new WeakMap();
 
-    var originalOrder = Array.prototype.slice.call(
+    var folders = Array.prototype.slice.call(
       container.querySelectorAll('.category-folder')
     );
+    var tabs = folders.map(function (folder) {
+      return folder.querySelector('.category-folder-tab');
+    });
 
-    if (!originalOrder.length) return;
+    if (!folders.length || tabs.some(function (tab) { return !tab; })) return;
 
     var extraTabHeight = 26;
-    var activeFolder = null;
+    var topLayer = 10000 + folders.length;
+    var selectedFolder = null;
+    var baseGeometry = new Map();
 
-    function currentFolders() {
-      return Array.prototype.slice.call(
-        container.querySelectorAll('.category-folder')
+    function getState(folder) {
+      var state = states.get(folder);
+      if (state) return state;
+
+      state = {
+        originalInlineZIndex: folder.style.zIndex,
+        resetTimer: null
+      };
+      states.set(folder, state);
+      return state;
+    }
+
+    function clearReset(folder) {
+      var state = getState(folder);
+      if (state.resetTimer !== null) {
+        window.clearTimeout(state.resetTimer);
+        state.resetTimer = null;
+      }
+    }
+
+    tabs.forEach(function (tab) {
+      var style = window.getComputedStyle(tab);
+      var rect = tab.getBoundingClientRect();
+      var paddingBottom = parseFloat(style.paddingBottom) || 0;
+      var marginBottom = parseFloat(style.marginBottom) || 0;
+
+      tab.style.setProperty('--folder-tab-base-height', rect.height + 'px');
+      tab.style.setProperty('--folder-tab-base-padding-bottom', paddingBottom + 'px');
+      tab.style.setProperty('--folder-tab-base-margin-bottom', marginBottom + 'px');
+      tab.style.setProperty('--folder-tab-extra-height', extraTabHeight + 'px');
+      tab.style.setProperty('--folder-tab-shift-x', '0px');
+      tab.classList.add('category-folder-tab--enhanced');
+    });
+
+    function visualOrder() {
+      if (!selectedFolder) return folders.slice();
+
+      return [selectedFolder].concat(
+        folders.filter(function (folder) {
+          return folder !== selectedFolder;
+        })
       );
     }
 
-    function currentTabs() {
-      return currentFolders().map(function (folder) {
-        return folder.querySelector('.category-folder-tab');
-      });
-    }
+    function updateGlassLayers(frontFolder) {
+      var order = visualOrder();
+      var front = frontFolder || order[0] || folders[0];
+      var frontIndex = order.indexOf(front);
+      if (frontIndex < 0) frontIndex = 0;
 
-    function clearCollapseTimer() {
-      if (collapseTimer !== null) {
-        window.clearTimeout(collapseTimer);
-        collapseTimer = null;
-      }
-    }
+      var back = order.length > 1
+        ? order[(frontIndex + 1) % order.length]
+        : null;
 
-    function setupTabs() {
-      originalOrder.forEach(function (folder) {
-        var tab = folder.querySelector('.category-folder-tab');
-        if (!tab) return;
-
-        var style = window.getComputedStyle(tab);
-        var rect = tab.getBoundingClientRect();
-        var paddingBottom = parseFloat(style.paddingBottom) || 0;
-        var marginBottom = parseFloat(style.marginBottom) || 0;
-
-        tab.style.setProperty('--folder-tab-base-height', rect.height + 'px');
-        tab.style.setProperty(
-          '--folder-tab-base-padding-bottom',
-          paddingBottom + 'px'
-        );
-        tab.style.setProperty(
-          '--folder-tab-base-margin-bottom',
-          marginBottom + 'px'
-        );
-        tab.style.setProperty(
-          '--folder-tab-extra-height',
-          extraTabHeight + 'px'
-        );
-        tab.style.setProperty('--folder-tab-shift-x', '0px');
-        tab.classList.add('category-folder-tab--enhanced');
-      });
-    }
-
-    /*
-     * DOM 顺序就是层级顺序。
-     * 第一项 = 当前卡片，第二项 = 背景卡片。
-     * 同时重写原来的 --folder-layer，避免旧的第一项继续拥有最高层级。
-     */
-    function syncLayers() {
-      var folders = currentFolders();
-      var count = folders.length;
-
-      folders.forEach(function (folder, index) {
-        var layer = count - index;
-        folder.style.setProperty('--folder-layer', layer);
-        folder.style.setProperty('--folder-tab-layer', layer + 100);
-
-        folder.classList.remove(
-          'is-glass-front',
-          'is-glass-back',
-          'is-selected'
-        );
-        folder.removeAttribute('data-folder-layer-state');
-        folder.style.removeProperty('z-index');
+      folders.forEach(function (folder) {
+        folder.classList.remove('is-glass-front', 'is-glass-back');
       });
 
-      if (folders[0]) {
-        folders[0].classList.add('is-glass-front');
-        if (activeFolder === folders[0]) {
-          folders[0].classList.add('is-selected');
-        }
-      }
-
-      if (folders[1]) {
-        folders[1].classList.add('is-glass-back');
-      }
+      if (front) front.classList.add('is-glass-front');
+      if (back) back.classList.add('is-glass-back');
 
       container.classList.add('glass-layers-ready');
     }
 
-    /*
-     * 计算“舒展排列”。
-     * 宽度够时 0 重叠；只有真的放不下才压缩。
-     */
-    function calculateTargetShifts() {
-      var tabs = currentTabs();
-      var shifts = new Map();
+    function raiseFolder(folder) {
+      clearReset(folder);
+      topLayer += 1;
+      folder.style.zIndex = String(topLayer);
+      folder.setAttribute('data-folder-layer-state', 'raised');
 
-      if (!tabs.length) return shifts;
-
-      tabs.forEach(function (tab) {
-        tab.style.setProperty('--folder-tab-shift-x', '0px');
-      });
-
-      var rects = tabs.map(function (tab) {
-        return tab.getBoundingClientRect();
-      });
-
-      if (tabs.length === 1) {
-        shifts.set(tabs[0], 0);
-        return shifts;
+      var sheet = folder.querySelector('.category-folder-sheet');
+      if (sheet) {
+        sheet.style.zIndex = String(topLayer);
       }
 
-      var containerRect = container.getBoundingClientRect();
-      var firstLeft = rects[0].left;
-      var available = Math.max(0, containerRect.right - firstLeft - 8);
-      var widths = rects.map(function (rect) {
-        return rect.width;
-      });
+      updateGlassLayers(folder);
+    }
 
-      var widthSum = widths.reduce(function (sum, width) {
-        return sum + width;
-      }, 0);
+    function restoreHoverFolder(folder) {
+      if (selectedFolder) return;
 
-      var overlapNeeded =
-        (widthSum - available) / Math.max(1, tabs.length - 1);
-      var overlap = Math.max(0, overlapNeeded);
-      var minimumVisible =
-        window.matchMedia('(max-width: 640px)').matches ? 32 : 44;
+      var state = getState(folder);
 
-      var steps = widths.slice(0, -1).map(function (width) {
-        return Math.max(minimumVisible, width - overlap);
-      });
+      if (state.originalInlineZIndex) {
+        folder.style.zIndex = state.originalInlineZIndex;
+      } else {
+        folder.style.removeProperty('z-index');
+      }
 
-      var total =
-        widths[widths.length - 1] +
-        steps.reduce(function (sum, step) {
-          return sum + step;
-        }, 0);
+      var sheet = folder.querySelector('.category-folder-sheet');
+      if (sheet) sheet.style.removeProperty('z-index');
 
-      if (total > available) {
-        var equalStep = Math.max(
-          26,
-          (available - widths[widths.length - 1]) /
-            Math.max(1, tabs.length - 1)
-        );
+      folder.removeAttribute('data-folder-layer-state');
+      updateGlassLayers();
+    }
 
-        steps = steps.map(function () {
-          return equalStep;
+    function measureBaseGeometry() {
+      tabs.forEach(function (tab) {
+        var rect = tab.getBoundingClientRect();
+        var shift =
+          parseFloat(tab.style.getPropertyValue('--folder-tab-shift-x')) || 0;
+
+        baseGeometry.set(tab, {
+          left: rect.left - shift,
+          width: rect.width
         });
-      }
-
-      var desiredLeft = firstLeft;
-
-      tabs.forEach(function (tab, index) {
-        shifts.set(tab, desiredLeft - rects[index].left);
-
-        if (index < steps.length) {
-          desiredLeft += steps[index];
-        }
-      });
-
-      return shifts;
-    }
-
-    function setShifts(shifts) {
-      shifts.forEach(function (shift, tab) {
-        tab.style.setProperty('--folder-tab-shift-x', shift + 'px');
       });
     }
 
-    /*
-     * FLIP：
-     * 1. 记住点击前每个标签的屏幕位置；
-     * 2. 真正重排 DOM；
-     * 3. 用临时 shift 把它们“放回旧位置”；
-     * 4. 下一帧动画到新位置。
-     *
-     * 这样卡片层级跟 DOM 一致，不再需要猜 z-index；
-     * 标签也不会先跳一下再开始动画。
-     */
-    function reorderWithAnimation(order, selectedFolder) {
-      var oldRects = new Map();
-
-      currentTabs().forEach(function (tab) {
-        oldRects.set(tab, tab.getBoundingClientRect());
-      });
-
-      container.classList.add('is-layout-snap');
-
-      order.forEach(function (folder) {
-        container.appendChild(folder);
-      });
-
-      activeFolder = selectedFolder || null;
-      syncLayers();
-
-      var tabs = currentTabs();
-
-      tabs.forEach(function (tab) {
-        tab.style.setProperty('--folder-tab-shift-x', '0px');
-      });
-
-      /* 强制一次布局，只在点击时发生，6 个标签的代价很小。 */
-      var baseRects = new Map();
-      tabs.forEach(function (tab) {
-        baseRects.set(tab, tab.getBoundingClientRect());
-      });
-
-      var targetShifts = calculateTargetShifts();
-
-      /*
-       * calculateTargetShifts() 为了测量会把 shift 归零，
-       * 此处重新读取归零后的 base 位置，并计算“旧画面补偿量”。
-       */
-      tabs.forEach(function (tab) {
-        var oldRect = oldRects.get(tab);
-        var baseRect = baseRects.get(tab);
-        if (!oldRect || !baseRect) return;
-
-        tab.style.setProperty(
-          '--folder-tab-shift-x',
-          oldRect.left - baseRect.left + 'px'
-        );
-      });
-
-      /* 确保浏览器登记了起点。 */
-      container.getBoundingClientRect();
+    function layoutTabs() {
+      if (cleanupSignal.aborted) return;
 
       if (layoutFrame !== null) {
         window.cancelAnimationFrame(layoutFrame);
       }
 
+      var order = visualOrder();
+      var orderedTabs = order.map(function (folder) {
+        return folder.querySelector('.category-folder-tab');
+      });
+
       layoutFrame = window.requestAnimationFrame(function () {
         layoutFrame = null;
-        container.classList.remove('is-layout-snap');
 
-        /*
-         * 选中态也在这一帧才加，使 7px 抬升和横向移动一起发生。
-         */
-        currentFolders().forEach(function (folder) {
-          folder.classList.toggle(
-            'is-selected',
-            Boolean(activeFolder && folder === activeFolder)
-          );
+        if (!baseGeometry.size) measureBaseGeometry();
+
+        var firstGeometry = baseGeometry.get(tabs[0]);
+        if (!firstGeometry) return;
+
+        var containerRect = container.getBoundingClientRect();
+        var firstLeft = firstGeometry.left;
+        var available = Math.max(0, containerRect.right - firstLeft - 8);
+
+        var widths = orderedTabs.map(function (tab) {
+          var geometry = baseGeometry.get(tab);
+          return geometry ? geometry.width : tab.getBoundingClientRect().width;
         });
 
-        setShifts(targetShifts);
+        var count = orderedTabs.length;
+        if (!count) return;
+
+        var widthSum = widths.reduce(function (sum, width) {
+          return sum + width;
+        }, 0);
+
+        var overlapNeeded =
+          count > 1 ? (widthSum - available) / (count - 1) : 0;
+        var overlap = Math.max(0, overlapNeeded);
+        var minimumVisible =
+          window.matchMedia('(max-width: 640px)').matches ? 32 : 44;
+
+        var steps = widths.slice(0, -1).map(function (width) {
+          return Math.max(minimumVisible, width - overlap);
+        });
+
+        var desiredLeft = firstLeft;
+
+        orderedTabs.forEach(function (tab, index) {
+          var geometry = baseGeometry.get(tab);
+          if (!geometry) return;
+
+          tab.style.setProperty(
+            '--folder-tab-shift-x',
+            desiredLeft - geometry.left + 'px'
+          );
+
+          if (index < steps.length) {
+            desiredLeft += steps[index];
+          }
+        });
       });
     }
 
-    function promoteFolder(folder) {
-      clearCollapseTimer();
+    function selectFolder(folder) {
+      if (selectedFolder === folder) return;
 
-      if (activeFolder === folder) {
-        restoreDefault();
-        return;
-      }
+      if (selectedFolder) {
+        var prevState = getState(selectedFolder);
 
-      var order = [folder].concat(
-        originalOrder.filter(function (item) {
-          return item !== folder;
-        })
-      );
-
-      reorderWithAnimation(order, folder);
-    }
-
-    function restoreDefault() {
-      clearCollapseTimer();
-
-      if (!activeFolder) {
-        syncLayers();
-        layoutWithoutAnimation();
-        return;
-      }
-
-      reorderWithAnimation(originalOrder.slice(), null);
-    }
-
-    function layoutWithoutAnimation() {
-      container.classList.add('is-layout-snap');
-
-      var shifts = calculateTargetShifts();
-      setShifts(shifts);
-
-      window.requestAnimationFrame(function () {
-        container.classList.remove('is-layout-snap');
-      });
-    }
-
-    function scheduleRestore() {
-      clearCollapseTimer();
-
-      collapseTimer = window.setTimeout(function () {
-        collapseTimer = null;
-
-        if (!container.matches(':hover')) {
-          restoreDefault();
+        if (prevState.originalInlineZIndex) {
+          selectedFolder.style.zIndex = prevState.originalInlineZIndex;
+        } else {
+          selectedFolder.style.removeProperty('z-index');
         }
-      }, 180);
+
+        var prevSheet =
+          selectedFolder.querySelector('.category-folder-sheet');
+        if (prevSheet) prevSheet.style.removeProperty('z-index');
+
+        selectedFolder.removeAttribute('data-folder-layer-state');
+      }
+
+      selectedFolder = folder;
+
+      /* Persistent until page reload/navigation. */
+      raiseFolder(folder);
+      layoutTabs();
     }
 
-    /* 顶部“分类菜单”原有逻辑保留。 */
+    /* Original quick-menu behavior */
     var menuToggle = document.getElementById('category-menu-toggle');
     var quickMenu = document.getElementById('category-quick-menu');
     var quickPicker = document.querySelector('.category-quick-picker');
 
     function setMenuOpen(open) {
       if (!menuToggle || !quickMenu) return;
-
       menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       quickMenu.hidden = !open;
     }
 
     if (menuToggle && quickMenu && quickPicker) {
-      menuToggle.addEventListener(
-        'click',
-        function () {
-          setMenuOpen(menuToggle.getAttribute('aria-expanded') !== 'true');
-        },
-        { signal: cleanupSignal }
-      );
+      menuToggle.addEventListener('click', function () {
+        setMenuOpen(menuToggle.getAttribute('aria-expanded') !== 'true');
+      }, { signal: cleanupSignal });
 
-      document.addEventListener(
-        'click',
-        function (event) {
-          if (!quickPicker.contains(event.target)) {
-            setMenuOpen(false);
-          }
-        },
-        { signal: cleanupSignal }
-      );
+      document.addEventListener('click', function (event) {
+        if (!quickPicker.contains(event.target)) setMenuOpen(false);
+      }, { signal: cleanupSignal });
 
-      document.addEventListener(
-        'keydown',
-        function (event) {
-          if (
-            event.key === 'Escape' &&
-            menuToggle.getAttribute('aria-expanded') === 'true'
-          ) {
-            setMenuOpen(false);
-            menuToggle.focus();
-          }
-        },
-        { signal: cleanupSignal }
-      );
+      document.addEventListener('keydown', function (event) {
+        if (
+          event.key === 'Escape' &&
+          menuToggle.getAttribute('aria-expanded') === 'true'
+        ) {
+          setMenuOpen(false);
+          menuToggle.focus();
+        }
+      }, { signal: cleanupSignal });
     }
 
-    setupTabs();
-    syncLayers();
-    layoutWithoutAnimation();
+    updateGlassLayers();
+    measureBaseGeometry();
+    layoutTabs();
 
-    originalOrder.forEach(function (folder) {
-      var tab = folder.querySelector('.category-folder-tab');
-      if (!tab) return;
+    tabs.forEach(function (tab, index) {
+      var folder = folders[index];
 
-      tab.setAttribute(
-        'aria-label',
-        '选择分类：' + String(tab.textContent || '').trim()
-      );
+      tab.addEventListener('click', function (event) {
+        if (
+          event.button !== 0 ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
 
-      tab.addEventListener(
-        'click',
-        function (event) {
-          if (
-            event.button !== 0 ||
-            event.ctrlKey ||
-            event.metaKey ||
-            event.shiftKey ||
-            event.altKey
-          ) {
-            return;
-          }
+        event.preventDefault();
+        event.stopPropagation();
+        selectFolder(folder);
 
-          event.preventDefault();
-          promoteFolder(folder);
-
-          if (event.detail > 0 && typeof tab.blur === 'function') {
-            tab.blur();
-          }
-        },
-        { signal: cleanupSignal }
-      );
+        if (event.detail > 0 && typeof tab.blur === 'function') {
+          tab.blur();
+        }
+      }, { signal: cleanupSignal });
     });
 
-    container.addEventListener(
-      'pointerenter',
-      function () {
-        clearCollapseTimer();
-      },
-      { signal: cleanupSignal }
-    );
-
-    container.addEventListener(
-      'pointerleave',
-      scheduleRestore,
-      { signal: cleanupSignal }
-    );
-
-    document.addEventListener(
-      'pointerdown',
-      function (event) {
-        if (activeFolder && !container.contains(event.target)) {
-          restoreDefault();
+    /*
+     * Before the first click, keep the original hover behavior.
+     * After a click, hover/mouseleave no longer changes selection.
+     */
+    folders.forEach(function (folder) {
+      folder.addEventListener('pointerenter', function () {
+        if (!selectedFolder) {
+          raiseFolder(folder);
         }
-      },
-      { signal: cleanupSignal }
-    );
+      }, { signal: cleanupSignal });
 
-    document.addEventListener(
-      'keydown',
-      function (event) {
-        if (event.key === 'Escape' && activeFolder) {
-          restoreDefault();
+      folder.addEventListener('pointerleave', function () {
+        if (!selectedFolder) {
+          restoreHoverFolder(folder);
         }
-      },
-      { signal: cleanupSignal }
-    );
+      }, { signal: cleanupSignal });
+    });
 
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () {
-        if (!cleanupSignal.aborted) {
-          setupTabs();
-          layoutWithoutAnimation();
-        }
+        if (cleanupSignal.aborted) return;
+        measureBaseGeometry();
+        layoutTabs();
       });
     }
 
     if ('ResizeObserver' in window) {
       resizeObserver = new ResizeObserver(function () {
-        if (!cleanupSignal.aborted) {
-          layoutWithoutAnimation();
-        }
+        if (cleanupSignal.aborted) return;
+        measureBaseGeometry();
+        layoutTabs();
       });
       resizeObserver.observe(container);
     } else {
-      window.addEventListener(
-        'resize',
-        layoutWithoutAnimation,
-        {
-          passive: true,
-          signal: cleanupSignal
-        }
-      );
+      window.addEventListener('resize', function () {
+        measureBaseGeometry();
+        layoutTabs();
+      }, {
+        passive: true,
+        signal: cleanupSignal
+      });
     }
 
     window.krosaPageCleanup = function () {
       cleanupController.abort();
-      clearCollapseTimer();
 
       if (layoutFrame !== null) {
         window.cancelAnimationFrame(layoutFrame);
