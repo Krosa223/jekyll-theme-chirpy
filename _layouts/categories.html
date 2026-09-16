@@ -16,6 +16,10 @@ layout: page
     padding-bottom: calc(var(--folder-tab-base-padding-bottom) + var(--folder-tab-extra-height)) !important;
     margin-bottom: calc(var(--folder-tab-base-margin-bottom) - var(--folder-tab-extra-height)) !important;
     translate: var(--folder-tab-shift-x, 0px) calc(0px - var(--folder-tab-extra-height));
+    transition:
+      translate 320ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 180ms ease,
+      border-color 180ms ease;
 
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
@@ -128,7 +132,7 @@ layout: page
         <a
           class="category-folder-tab"
           href="{{ category_url | relative_url }}"
-          aria-label="打开分类：{{ category_name }}"
+          aria-label="选择分类：{{ category_name }}"
         >
           <i class="far fa-folder-open fa-fw" aria-hidden="true"></i>
           <span>{{ category_name }}</span>
@@ -320,6 +324,26 @@ layout: page
       return folder.matches(':hover') || folder.contains(document.activeElement);
     }
 
+    function promoteFolder(folder) {
+      var index = folders.indexOf(folder);
+      if (index < 0) return;
+
+      if (index > 0) {
+        var promotedFolder = folders.splice(index, 1)[0];
+        var promotedTab = tabs.splice(index, 1)[0];
+
+        folders.unshift(promotedFolder);
+        tabs.unshift(promotedTab);
+      }
+
+      /*
+       * 不改变 DOM，也不跳转页面。只改变当前页的视觉顺序：
+       * 被点击的文件夹成为第一张，页签移动到最左边。
+       */
+      raiseFolder(folder);
+      layoutTabs();
+    }
+
     function updateGlassLayers(frontFolder) {
       var front = frontFolder;
 
@@ -393,6 +417,31 @@ layout: page
     updateGlassLayers();
 
     folders.forEach(function (folder) {
+      var tab = folder.querySelector('.category-folder-tab');
+
+      if (tab) {
+        tab.addEventListener('click', function (event) {
+          /*
+           * 普通左键：在当前分类页内选择文件夹，不进入 /categories/.../。
+           * Ctrl/Cmd/Shift/Alt 点击仍保留浏览器原本的链接行为，
+           * 方便需要时主动在新标签页打开该分类。
+           */
+          if (
+            event.button !== 0 ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            event.altKey
+          ) {
+            return;
+          }
+
+          event.preventDefault();
+          event.stopPropagation();
+          promoteFolder(folder);
+        }, { signal: cleanupSignal });
+      }
+
       folder.addEventListener('pointerenter', function () {
         raiseFolder(folder);
       }, { signal: cleanupSignal });
@@ -426,21 +475,23 @@ layout: page
 
         layoutFrame = null;
 
-        /* 先取消旧的横向位移，取得主题原本的页签位置。 */
-        tabs.forEach(function (tab) {
-          tab.style.setProperty('--folder-tab-shift-x', '0px');
-        });
-
         var containerRect = container.getBoundingClientRect();
         var rects = tabs.map(function (tab) {
           return tab.getBoundingClientRect();
+        });
+        var shifts = tabs.map(function (tab) {
+          return parseFloat(tab.style.getPropertyValue('--folder-tab-shift-x')) || 0;
+        });
+        var baseLefts = rects.map(function (rect, index) {
+          return rect.left - shifts[index];
         });
         var widths = rects.map(function (rect) { return rect.width; });
         var count = tabs.length;
 
         if (count < 2) return;
 
-        var firstLeft = rects[0].left;
+        /* 左侧第一个槽位始终固定，点击只重新分配每个页签到哪个槽位。 */
+        var firstLeft = Math.min.apply(null, baseLefts);
         var available = Math.max(0, containerRect.right - firstLeft - 8);
         var widthSum = widths.reduce(function (sum, width) {
           return sum + width;
@@ -471,7 +522,7 @@ layout: page
 
         var desiredLeft = firstLeft;
         tabs.forEach(function (tab, index) {
-          var shift = desiredLeft - rects[index].left;
+          var shift = desiredLeft - baseLefts[index];
           tab.style.setProperty('--folder-tab-shift-x', shift + 'px');
 
           if (index < steps.length) {
