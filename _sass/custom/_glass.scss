@@ -108,6 +108,29 @@ body {
   backdrop-filter: blur(4px) saturate(112%);
 }
 
+/* 首页同级页面：较窄、居中的玻璃背板。
+ * 文章页不会获得 compact-page-layout，因此保持原布局和原右侧 panel。
+ */
+@media (min-width: 992px) {
+  #main-wrapper > .container.compact-page-layout {
+    width: calc(100% - 1.5rem);
+    max-width: 54rem;
+    margin-inline: auto;
+  }
+
+  .compact-page-layout .site-content-row,
+  .compact-page-layout .site-tail-row {
+    justify-content: center;
+  }
+
+  .compact-page-layout .site-content-row > main,
+  .compact-page-layout #tail-wrapper {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: none;
+  }
+}
+
 @include bp.xxxl {
   #main-wrapper::before,
   #main-wrapper::after {

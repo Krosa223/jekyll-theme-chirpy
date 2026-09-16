@@ -20,10 +20,21 @@ layout: compress
   <body>
     {% include sidebar.html lang=lang %}
 
+    {% assign compact_page = false %}
+    {% if page.layout == 'categories'
+      or page.layout == 'category'
+      or page.layout == 'tags'
+      or page.layout == 'tag'
+      or page.layout == 'archives'
+      or page.layout == 'page'
+    %}
+      {% assign compact_page = true %}
+    {% endif %}
+
     <div id="main-wrapper" class="d-flex justify-content-center">
       <div
         id="swup"
-        class="container d-flex flex-column px-xxl-5{% if page.layout == 'home' %} home-layout{% endif %}"
+        class="container d-flex flex-column px-xxl-5{% if page.layout == 'home' %} home-layout{% endif %}{% if compact_page %} compact-page-layout{% endif %}"
       >
         {% include topbar.html lang=lang %}
 
@@ -31,7 +42,7 @@ layout: compress
           <main
             aria-label="Main Content"
             class="
-              col-12 col-lg-11 col-xl-9 px-md-4
+              {% if compact_page %}col-12 px-md-4 mx-auto{% else %}col-12 col-lg-11 col-xl-9 px-md-4{% endif %}
               swup-transition-region swup-transition-main
             "
             data-swup-transition
@@ -44,7 +55,7 @@ layout: compress
           </main>
 
           <!-- panel -->
-          {% unless page.layout == 'home' %}
+          {% unless page.layout == 'home' or compact_page %}
           <aside
             aria-label="Panel"
             id="panel-wrapper"
@@ -70,7 +81,7 @@ layout: compress
           <!-- tail -->
           <div
             id="tail-wrapper"
-            class="col-12 col-lg-11 col-xl-9 px-md-4"
+            class="{% if compact_page %}col-12 px-md-4 mx-auto{% else %}col-12 col-lg-11 col-xl-9 px-md-4{% endif %}"
           >
             {% for _include in layout.tail_includes %}
               {% assign _include_path = _include | append: '.html' %}
