@@ -506,7 +506,7 @@ layout: page
       container.classList.add('glass-layers-ready');
     }
 
-    function raiseSelected(folder) {
+    function raiseSelectedWithoutLift(folder) {
       folders.forEach(function (item) {
         item.style.removeProperty('z-index');
         item.removeAttribute('data-folder-layer-state');
@@ -519,7 +519,13 @@ layout: page
 
       topLayer += 1;
       folder.style.zIndex = String(topLayer);
-      folder.setAttribute('data-folder-layer-state', 'raised');
+
+      /*
+       * 持久选中只提高层级，不再保留 raised 状态。
+       * raised 是原主题给 hover 使用的“升起”状态，持久保留会让
+       * 页签底边离开卡片顶边，从而出现点击后的空隙。
+       */
+      folder.removeAttribute('data-folder-layer-state');
 
       var selectedSheet = folder.querySelector('.category-folder-sheet');
       if (selectedSheet) {
@@ -537,7 +543,7 @@ layout: page
        * 卡片先直接切换；随后只让页签做 190ms 位移动画。
        * 避免两张大面积毛玻璃卡片交叉淡入淡出造成卡顿。
        */
-      raiseSelected(folder);
+      raiseSelectedWithoutLift(folder);
       updateCardLayers(folder);
       applyTabOrder(true);
     }
