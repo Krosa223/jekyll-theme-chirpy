@@ -15,15 +15,12 @@ layout: page
     height: calc(var(--folder-tab-base-height) + var(--folder-tab-extra-height)) !important;
     padding-bottom: calc(var(--folder-tab-base-padding-bottom) + var(--folder-tab-extra-height)) !important;
     margin-bottom: calc(var(--folder-tab-base-margin-bottom) - var(--folder-tab-extra-height)) !important;
-    --folder-tab-selected-lift: 0px;
-    translate:
-      var(--folder-tab-shift-x, 0px)
-      calc(0px - var(--folder-tab-extra-height) - var(--folder-tab-selected-lift));
+    translate: var(--folder-tab-shift-x, 0px) calc(0px - var(--folder-tab-extra-height));
     will-change: translate;
     transition:
-      translate 240ms cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 180ms ease,
-      border-color 180ms ease;
+      translate 190ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 140ms ease,
+      border-color 140ms ease;
 
     color: #fff !important;
     -webkit-text-fill-color: #fff !important;
@@ -91,14 +88,38 @@ layout: page
   }
 
 
-  /* Persistent selected tab: only a small lift; original folder/card styles stay intact. */
+  /*
+   * 点击选中后不再向上移动页签。
+   * “在最上层”只通过层级和阴影表现，页签底边始终贴住卡片顶边，
+   * 因此不会再出现 8px 空白。
+   */
   .category-folder.is-click-selected
     .category-folder-tab.category-folder-tab--enhanced {
-    --folder-tab-selected-lift: 8px;
+    position: relative;
+    z-index: 10050 !important;
     box-shadow:
-      0 10px 22px rgba(15, 24, 31, 0.24),
+      0 7px 18px rgba(15, 24, 31, 0.23),
       inset 0 1px 0 rgb(var(--folder-glass-rgb) / 0.98),
       inset 0 -1px 0 rgba(10, 20, 28, 0.18);
+  }
+
+  /*
+   * 卡顿的主要来源不是位移计算，而是：
+   * 1) 多个 13px backdrop-filter 页签同时移动；
+   * 2) 两张大面积 14px 毛玻璃卡片同时做 opacity/filter 过渡。
+   *
+   * 移动的 190ms 内临时关闭“页签”的 blur；颜色和透明度仍保留。
+   * 点击选中后卡片直接切换，不再让两张大玻璃卡片交叉淡入淡出。
+   */
+  .category-folders.is-tab-switching
+    .category-folder-tab.category-folder-tab--enhanced {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .category-folders.has-click-selection
+    .category-folder-sheet {
+    transition: none !important;
   }
 
   .category-folders.is-tab-measuring
@@ -202,6 +223,7 @@ layout: page
     var cleanupSignal = cleanupController.signal;
     var resizeObserver = null;
     var layoutFrame = null;
+    var switchTimer = null;
     var selectedFolder = null;
     var topLayer = 10000;
 
@@ -217,15 +239,26 @@ layout: page
     var extraTabHeight = 26;
     var baseLefts = new Map();
     var tabWidths = new Map();
-    var slotLefts = [];
-    var measuredWidth = 0;
+    var sheetLeft = 0;
+    var sheetWidth = 0;
 
     window.krosaPageCleanup = function () {
       cleanupController.abort();
-      if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
-      if (resizeObserver) resizeObserver.disconnect();
+
+      if (layoutFrame !== null) {
+        window.cancelAnimationFrame(layoutFrame);
+      }
+
+      if (switchTimer !== null) {
+        window.clearTimeout(switchTimer);
+      }
+
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
     };
 
+    /* ---------- 快速分类菜单：保持原逻辑 ---------- */
     var menuToggle = document.getElementById('category-menu-toggle');
     var quickMenu = document.getElementById('category-quick-menu');
     var quickPicker = document.querySelector('.category-quick-picker');
@@ -246,13 +279,17 @@ layout: page
       }, { signal: cleanupSignal });
 
       document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && menuToggle.getAttribute('aria-expanded') === 'true') {
+        if (
+          event.key === 'Escape' &&
+          menuToggle.getAttribute('aria-expanded') === 'true'
+        ) {
           setMenuOpen(false);
           menuToggle.focus();
         }
       }, { signal: cleanupSignal });
     }
 
+    /* ---------- 页签基础增强：原结构不动 ---------- */
     tabs.forEach(function (tab) {
       var style = window.getComputedStyle(tab);
       var rect = tab.getBoundingClientRect();
@@ -260,8 +297,14 @@ layout: page
       var marginBottom = parseFloat(style.marginBottom) || 0;
 
       tab.style.setProperty('--folder-tab-base-height', rect.height + 'px');
-      tab.style.setProperty('--folder-tab-base-padding-bottom', paddingBottom + 'px');
-      tab.style.setProperty('--folder-tab-base-margin-bottom', marginBottom + 'px');
+      tab.style.setProperty(
+        '--folder-tab-base-padding-bottom',
+        paddingBottom + 'px'
+      );
+      tab.style.setProperty(
+        '--folder-tab-base-margin-bottom',
+        marginBottom + 'px'
+      );
       tab.style.setProperty('--folder-tab-extra-height', extraTabHeight + 'px');
       tab.style.setProperty('--folder-tab-shift-x', '0px');
       tab.classList.add('category-folder-tab--enhanced');
@@ -269,61 +312,41 @@ layout: page
 
     function visualOrder() {
       if (!selectedFolder) return folders.slice();
-      return [selectedFolder].concat(folders.filter(function (folder) {
-        return folder !== selectedFolder;
-      }));
+
+      return [selectedFolder].concat(
+        folders.filter(function (folder) {
+          return folder !== selectedFolder;
+        })
+      );
     }
 
-    function measureSlots() {
+    /*
+     * 几何只在首次加载 / 字体稳定 / 卡片真实 resize 时读取。
+     * 点击切换只做纯数学计算 + 一次样式写入，不再反复触发布局测量。
+     */
+    function measureGeometry() {
       container.classList.add('is-tab-measuring');
+
       tabs.forEach(function (tab) {
         tab.style.setProperty('--folder-tab-shift-x', '0px');
       });
 
-      var rects = tabs.map(function (tab) {
+      var tabRects = tabs.map(function (tab) {
         return tab.getBoundingClientRect();
       });
 
       var sheet = folders[0].querySelector('.category-folder-sheet');
-      var sheetRect = sheet ? sheet.getBoundingClientRect() : container.getBoundingClientRect();
-      var startLeft = sheetRect.left;
-      var available = Math.max(0, sheetRect.width - 8);
+      var sheetRect = sheet
+        ? sheet.getBoundingClientRect()
+        : container.getBoundingClientRect();
 
       tabs.forEach(function (tab, index) {
-        baseLefts.set(tab, rects[index].left);
-        tabWidths.set(tab, rects[index].width);
+        baseLefts.set(tab, tabRects[index].left);
+        tabWidths.set(tab, tabRects[index].width);
       });
 
-      var widths = tabs.map(function (tab) {
-        return tabWidths.get(tab) || 0;
-      });
-      var count = widths.length;
-      var widthSum = widths.reduce(function (sum, width) { return sum + width; }, 0);
-      var overlapNeeded = count > 1 ? (widthSum - available) / (count - 1) : 0;
-      var overlap = Math.max(0, overlapNeeded);
-      var minimumVisible = window.matchMedia('(max-width: 640px)').matches ? 32 : 44;
-
-      var steps = widths.slice(0, -1).map(function (width) {
-        return Math.max(minimumVisible, width - overlap);
-      });
-
-      var total = (widths[count - 1] || 0) + steps.reduce(function (sum, step) {
-        return sum + step;
-      }, 0);
-
-      if (count > 1 && total > available) {
-        var equalStep = Math.max(26, (available - widths[count - 1]) / (count - 1));
-        steps = steps.map(function () { return equalStep; });
-      }
-
-      slotLefts = [];
-      var left = startLeft;
-      for (var index = 0; index < count; index += 1) {
-        slotLefts.push(left);
-        if (index < steps.length) left += steps[index];
-      }
-
-      measuredWidth = sheetRect.width;
+      sheetLeft = sheetRect.left;
+      sheetWidth = sheetRect.width;
 
       window.requestAnimationFrame(function () {
         container.classList.remove('is-tab-measuring');
@@ -331,21 +354,111 @@ layout: page
       });
     }
 
-    function applyTabOrder(animate) {
-      if (!slotLefts.length) return;
-      if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
-      if (!animate) container.classList.add('is-tab-measuring');
+    function calculateTargets(order) {
+      var targets = new Map();
+      if (!sheetWidth) return targets;
 
-      var order = visualOrder();
+      var orderedTabs = order.map(function (folder) {
+        return folder.querySelector('.category-folder-tab');
+      });
+
+      var widths = orderedTabs.map(function (tab) {
+        return tabWidths.get(tab) || 0;
+      });
+
+      var count = widths.length;
+      var available = Math.max(0, sheetWidth - 8);
+      var widthSum = widths.reduce(function (sum, width) {
+        return sum + width;
+      }, 0);
+
+      var overlapNeeded =
+        count > 1 ? (widthSum - available) / (count - 1) : 0;
+      var overlap = Math.max(0, overlapNeeded);
+
+      var minimumVisible =
+        window.matchMedia('(max-width: 640px)').matches ? 32 : 44;
+
+      var steps = widths.slice(0, -1).map(function (width) {
+        return Math.max(minimumVisible, width - overlap);
+      });
+
+      var total =
+        (widths[count - 1] || 0) +
+        steps.reduce(function (sum, step) {
+          return sum + step;
+        }, 0);
+
+      if (count > 1 && total > available) {
+        var equalStep = Math.max(
+          26,
+          (available - widths[count - 1]) / (count - 1)
+        );
+
+        steps = steps.map(function () {
+          return equalStep;
+        });
+      }
+
+      var left = sheetLeft;
+
+      orderedTabs.forEach(function (tab, index) {
+        targets.set(tab, left);
+
+        if (index < steps.length) {
+          left += steps[index];
+        }
+      });
+
+      return targets;
+    }
+
+    function beginSwitchAnimation() {
+      if (switchTimer !== null) {
+        window.clearTimeout(switchTimer);
+      }
+
+      container.classList.add('is-tab-switching');
+
+      switchTimer = window.setTimeout(function () {
+        switchTimer = null;
+        container.classList.remove('is-tab-switching');
+      }, 220);
+    }
+
+    function applyTabOrder(animate) {
+      if (!baseLefts.size || !sheetWidth) return;
+
+      var targets = calculateTargets(visualOrder());
+
+      if (layoutFrame !== null) {
+        window.cancelAnimationFrame(layoutFrame);
+      }
+
+      if (animate) {
+        beginSwitchAnimation();
+      } else {
+        container.classList.add('is-tab-measuring');
+      }
+
       layoutFrame = window.requestAnimationFrame(function () {
         layoutFrame = null;
 
-        order.forEach(function (folder, slotIndex) {
-          var tab = folder.querySelector('.category-folder-tab');
+        tabs.forEach(function (tab) {
           var baseLeft = baseLefts.get(tab);
-          var targetLeft = slotLefts[slotIndex];
-          if (typeof baseLeft !== 'number' || typeof targetLeft !== 'number') return;
-          tab.style.setProperty('--folder-tab-shift-x', targetLeft - baseLeft + 'px');
+          var targetLeft = targets.get(tab);
+
+          if (
+            typeof baseLeft !== 'number' ||
+            typeof targetLeft !== 'number'
+          ) {
+            return;
+          }
+
+          tab.style.setProperty(
+            '--folder-tab-shift-x',
+            targetLeft - baseLeft + 'px'
+          );
         });
 
         if (!animate) {
@@ -356,106 +469,171 @@ layout: page
       });
     }
 
-    function updateCardLayers() {
+    /*
+     * 只切 class，不改 DOM、不改原始 --folder-layer。
+     */
+    function updateCardLayers(frontFolder) {
       var order = visualOrder();
-      var front = order[0] || folders[0];
-      var back = order.length > 1 ? order[1] : null;
+      var front = frontFolder || order[0] || folders[0];
+      var frontIndex = order.indexOf(front);
+
+      if (frontIndex < 0) frontIndex = 0;
+
+      var back = order.length > 1
+        ? order[(frontIndex + 1) % order.length]
+        : null;
 
       folders.forEach(function (folder) {
-        folder.classList.remove('is-glass-front', 'is-glass-back', 'is-click-selected');
+        folder.classList.remove(
+          'is-glass-front',
+          'is-glass-back',
+          'is-click-selected'
+        );
       });
 
       if (front) {
         front.classList.add('is-glass-front');
-        if (selectedFolder === front) front.classList.add('is-click-selected');
+
+        if (selectedFolder === front) {
+          front.classList.add('is-click-selected');
+        }
       }
-      if (back) back.classList.add('is-glass-back');
+
+      if (back) {
+        back.classList.add('is-glass-back');
+      }
+
       container.classList.add('glass-layers-ready');
     }
 
     function raiseSelected(folder) {
       folders.forEach(function (item) {
         item.style.removeProperty('z-index');
-        var itemSheet = item.querySelector('.category-folder-sheet');
-        if (itemSheet) itemSheet.style.removeProperty('z-index');
         item.removeAttribute('data-folder-layer-state');
+
+        var sheet = item.querySelector('.category-folder-sheet');
+        if (sheet) {
+          sheet.style.removeProperty('z-index');
+        }
       });
 
       topLayer += 1;
       folder.style.zIndex = String(topLayer);
       folder.setAttribute('data-folder-layer-state', 'raised');
 
-      var sheet = folder.querySelector('.category-folder-sheet');
-      if (sheet) sheet.style.zIndex = String(topLayer);
+      var selectedSheet = folder.querySelector('.category-folder-sheet');
+      if (selectedSheet) {
+        selectedSheet.style.zIndex = String(topLayer);
+      }
     }
 
     function selectFolder(folder) {
       if (selectedFolder === folder) return;
+
       selectedFolder = folder;
+      container.classList.add('has-click-selection');
+
+      /*
+       * 卡片先直接切换；随后只让页签做 190ms 位移动画。
+       * 避免两张大面积毛玻璃卡片交叉淡入淡出造成卡顿。
+       */
       raiseSelected(folder);
-      updateCardLayers();
+      updateCardLayers(folder);
       applyTabOrder(true);
     }
 
+    /* ---------- 点击：持久选择，直到刷新/重新进入页面 ---------- */
     tabs.forEach(function (tab, index) {
       var folder = folders[index];
+
       tab.addEventListener('click', function (event) {
-        if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        if (
+          event.button !== 0 ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+
         event.preventDefault();
         event.stopPropagation();
+
         selectFolder(folder);
-        if (event.detail > 0 && typeof tab.blur === 'function') tab.blur();
+
+        if (event.detail > 0 && typeof tab.blur === 'function') {
+          tab.blur();
+        }
       }, { signal: cleanupSignal });
     });
 
+    /*
+     * 首次点击之前保留原来的 hover 前置效果。
+     * 点击之后，mouseleave/hover 都不再修改持久选择。
+     */
     folders.forEach(function (folder) {
       folder.addEventListener('pointerenter', function () {
         if (selectedFolder) return;
+
         topLayer += 1;
         folder.style.zIndex = String(topLayer);
         folder.setAttribute('data-folder-layer-state', 'raised');
-        folders.forEach(function (item) {
-          item.classList.remove('is-glass-front', 'is-glass-back');
-        });
-        folder.classList.add('is-glass-front');
-        var index = folders.indexOf(folder);
-        if (folders.length > 1) folders[(index + 1) % folders.length].classList.add('is-glass-back');
-        container.classList.add('glass-layers-ready');
+
+        updateCardLayers(folder);
       }, { signal: cleanupSignal });
 
       folder.addEventListener('pointerleave', function () {
         if (selectedFolder) return;
+
         folder.style.removeProperty('z-index');
         folder.removeAttribute('data-folder-layer-state');
-        folders.forEach(function (item) {
-          item.classList.remove('is-glass-front', 'is-glass-back');
-        });
-        if (folders[0]) folders[0].classList.add('is-glass-front');
-        if (folders[1]) folders[1].classList.add('is-glass-back');
+
+        updateCardLayers(folders[0]);
       }, { signal: cleanupSignal });
     });
 
-    updateCardLayers();
-    window.requestAnimationFrame(measureSlots);
+    /* ---------- 初始布局 ---------- */
+    updateCardLayers(folders[0]);
+
+    window.requestAnimationFrame(function () {
+      measureGeometry();
+    });
 
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () {
-        if (!cleanupSignal.aborted) measureSlots();
+        if (!cleanupSignal.aborted) {
+          measureGeometry();
+        }
       });
     }
 
     if ('ResizeObserver' in window) {
       resizeObserver = new ResizeObserver(function () {
         if (cleanupSignal.aborted) return;
+
         var sheet = folders[0].querySelector('.category-folder-sheet');
         if (!sheet) return;
-        var width = sheet.getBoundingClientRect().width;
-        if (Math.abs(width - measuredWidth) > 1) measureSlots();
+
+        var rect = sheet.getBoundingClientRect();
+
+        if (
+          Math.abs(rect.width - sheetWidth) > 1 ||
+          Math.abs(rect.left - sheetLeft) > 1
+        ) {
+          measureGeometry();
+        }
       });
+
       var observedSheet = folders[0].querySelector('.category-folder-sheet');
-      if (observedSheet) resizeObserver.observe(observedSheet);
+      if (observedSheet) {
+        resizeObserver.observe(observedSheet);
+      }
     } else {
-      window.addEventListener('resize', measureSlots, { passive: true, signal: cleanupSignal });
+      window.addEventListener('resize', measureGeometry, {
+        passive: true,
+        signal: cleanupSignal
+      });
     }
   })();
 </script>
