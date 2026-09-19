@@ -15,10 +15,13 @@ layout: page
     height: calc(var(--folder-tab-base-height) + var(--folder-tab-extra-height)) !important;
     padding-bottom: calc(var(--folder-tab-base-padding-bottom) + var(--folder-tab-extra-height)) !important;
     margin-bottom: calc(var(--folder-tab-base-margin-bottom) - var(--folder-tab-extra-height)) !important;
-    translate: var(--folder-tab-shift-x, 0px) calc(0px - var(--folder-tab-extra-height));
+    --folder-selected-lift: 0px;
+    translate:
+      var(--folder-tab-shift-x, 0px)
+      calc(0px - var(--folder-tab-extra-height) - var(--folder-selected-lift));
     will-change: translate;
     transition:
-      translate 190ms cubic-bezier(0.22, 1, 0.36, 1),
+      translate 180ms cubic-bezier(0.22, 1, 0.36, 1),
       box-shadow 140ms ease,
       border-color 140ms ease;
 
@@ -89,18 +92,30 @@ layout: page
 
 
   /*
-   * 点击选中后不再向上移动页签。
-   * “在最上层”只通过层级和阴影表现，页签底边始终贴住卡片顶边，
-   * 因此不会再出现 8px 空白。
+   * V12：页签与它自己的内容卡片同步上浮。
+   *
+   * 不能 transform 整个 .category-folder：
+   * category-folder-sheet 是叠层定位元素，父级一旦 transform 会创建新的
+   * containing block，卡片宽度/位置就会被限制到页签所在的小父容器中，
+   * 这正是 V11 出现右侧“细长卡片”的原因。
+   *
+   * 因此这里只分别移动 tab 与 sheet，二者使用完全相同的 20px lift。
    */
   .category-folder.is-click-selected
     .category-folder-tab.category-folder-tab--enhanced {
+    --folder-selected-lift: 20px;
     position: relative;
     z-index: 10050 !important;
     box-shadow:
       0 7px 18px rgba(15, 24, 31, 0.23),
       inset 0 1px 0 rgb(var(--folder-glass-rgb) / 0.98),
       inset 0 -1px 0 rgba(10, 20, 28, 0.18);
+  }
+
+  .category-folder.is-click-selected
+    .category-folder-sheet {
+    translate: 0 -20px !important;
+    will-change: translate;
   }
 
   /*
@@ -119,7 +134,7 @@ layout: page
 
   .category-folders.has-click-selection
     .category-folder-sheet {
-    transition: none !important;
+    transition: translate 180ms cubic-bezier(0.22, 1, 0.36, 1) !important;
   }
 
   .category-folders.is-tab-measuring
@@ -127,41 +142,9 @@ layout: page
     transition: none !important;
   }
 
-
-  /*
-   * V11：选中的“文件夹整体”上浮。
-   * 不再只让页签浮起来，而是移动整个 .category-folder，
-   * 因此页签和对应的 category-folder-sheet 会保持贴合，一起上移。
-   *
-   * 20px 对应截图中当前页签的实际抬升量。
-   */
-  .category-folder.is-click-selected {
-    transform: translate3d(0, -20px, 0);
-    transform-origin: left top;
-    will-change: transform;
-    transition: transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  /*
-   * 选中后禁用主题可能额外施加在页签上的 hover/focus transform。
-   * 横向位置仍由 CSS translate 控制，不受这里影响。
-   * 这样不会出现“页签再升一次、卡片只升一次”的二次错位。
-   */
-  .category-folder.is-click-selected
-    .category-folder-tab.category-folder-tab--enhanced,
-  .category-folder.is-click-selected:hover
-    .category-folder-tab.category-folder-tab--enhanced,
-  .category-folder.is-click-selected:focus-within
-    .category-folder-tab.category-folder-tab--enhanced {
-    transform: none !important;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .category-folder-tab.category-folder-tab--enhanced {
-      transition: none !important;
-    }
-
-    .category-folder.is-click-selected {
+    .category-folder-tab.category-folder-tab--enhanced,
+    .category-folders.has-click-selection .category-folder-sheet {
       transition: none !important;
     }
   }
