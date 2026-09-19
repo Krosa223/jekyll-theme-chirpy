@@ -101,9 +101,12 @@ layout: page
    *
    * 因此这里只分别移动 tab 与 sheet，二者使用完全相同的 20px lift。
    */
+  /*
+   * 持久“选中”只负责层级/阴影，不再负责纵向拉起。
+   * 拉起动作改为临时的 is-switch-lifted，动画结束后自动落回。
+   */
   .category-folder.is-click-selected
     .category-folder-tab.category-folder-tab--enhanced {
-    --folder-selected-lift: 20px;
     position: relative;
     z-index: 10050 !important;
     box-shadow:
@@ -112,7 +115,16 @@ layout: page
       inset 0 -1px 0 rgba(10, 20, 28, 0.18);
   }
 
-  .category-folder.is-click-selected
+  /*
+   * 切换瞬间：页签和自己的内容卡片一起上浮 20px。
+   * 横向移动结束后移除这个 class，两者一起落回原位。
+   */
+  .category-folder.is-switch-lifted
+    .category-folder-tab.category-folder-tab--enhanced {
+    --folder-selected-lift: 20px;
+  }
+
+  .category-folder.is-switch-lifted
     .category-folder-sheet {
     translate: 0 -20px !important;
     will-change: translate;
@@ -240,6 +252,7 @@ layout: page
     var resizeObserver = null;
     var layoutFrame = null;
     var switchTimer = null;
+    var liftTimer = null;
     var selectedFolder = null;
     var topLayer = 10000;
 
@@ -267,6 +280,10 @@ layout: page
 
       if (switchTimer !== null) {
         window.clearTimeout(switchTimer);
+      }
+
+      if (liftTimer !== null) {
+        window.clearTimeout(liftTimer);
       }
 
       if (resizeObserver) {
@@ -442,6 +459,29 @@ layout: page
       }, 220);
     }
 
+    function playTemporaryLift(folder) {
+      if (liftTimer !== null) {
+        window.clearTimeout(liftTimer);
+        liftTimer = null;
+      }
+
+      /* 防止快速连续点击时旧标签还挂着拉起状态。 */
+      folders.forEach(function (item) {
+        item.classList.remove('is-switch-lifted');
+      });
+
+      folder.classList.add('is-switch-lifted');
+
+      /*
+       * 横向动画约 180ms；稍后移除 lift，
+       * 页签 + 卡片一起落回并贴合到正常收纳位置。
+       */
+      liftTimer = window.setTimeout(function () {
+        liftTimer = null;
+        folder.classList.remove('is-switch-lifted');
+      }, 210);
+    }
+
     function applyTabOrder(animate) {
       if (!baseLefts.size || !sheetWidth) return;
 
@@ -561,6 +601,7 @@ layout: page
        */
       raiseSelectedWithoutLift(folder);
       updateCardLayers(folder);
+      playTemporaryLift(folder);
       applyTabOrder(true);
     }
 
