@@ -21,6 +21,25 @@ layout: page
     font-size: 1.05rem;
     font-weight: 700;
   }
+
+  /*
+   * 文章时间线保留整块大玻璃背板，
+   * 只去掉每篇文章标题外面的“小玻璃胶囊”。
+   */
+  .tags-archive-page #archives li > a,
+  .tags-archive-page #archives li > a:hover,
+  .tags-archive-page #archives li > a:focus,
+  .tags-archive-page #archives li > a:active,
+  .tags-archive-page #archives .archive-post-title {
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    text-decoration: none;
+  }
 </style>
 
 <div class="tags-archive-page">
