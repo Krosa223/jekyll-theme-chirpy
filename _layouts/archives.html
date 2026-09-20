@@ -232,7 +232,8 @@ layout: page
     var AI_RADIUS = 24;
     var DEFAULT_PLAYER_RADIUS = 18;
     var WIN_SCORE = 5;
-    var MAX_PUCK_SPEED = 920;
+    // Hard speed cap: keeps fast paddle hits and repeated rebounds controllable.
+    var MAX_PUCK_SPEED = 650;
     var AI_SPEED = 300;
 
     var running = false;
@@ -381,38 +382,134 @@ layout: page
       ai.vy = (ai.y - ai.previousY) / Math.max(dt, 0.001);
     }
 
-    function collidePaddle(paddle, strength) {
-      var dx = puck.x - paddle.x;
-      var dy = puck.y - paddle.y;
-      var distance = Math.hypot(dx, dy);
+    function limitPuckSpeed() {
+      var speed = Math.hypot(puck.vx, puck.vy);
+
+      if (speed > MAX_PUCK_SPEED) {
+        var scale = MAX_PUCK_SPEED / Math.max(speed, 0.001);
+        puck.vx *= scale;
+        puck.vy *= scale;
+      }
+    }
+
+    /*
+     * Swept circle collision.
+     *
+     * The old version only checked the two circles at the END of a frame.
+     * If the glass cursor moved from one side of the puck to the other within
+     * a single frame, the circles were never overlapping at the sampled end
+     * position and the hit was missed ("tunneling").
+     *
+     * Here we test the entire relative motion segment from previous -> current
+     * position, so even a very fast mouse sweep can hit the puck.
+     */
+    function collidePaddle(paddle, strength, puckStartX, puckStartY) {
       var minDistance = puck.radius + paddle.radius;
 
-      if (distance >= minDistance) return;
+      var relStartX = puckStartX - paddle.previousX;
+      var relStartY = puckStartY - paddle.previousY;
+      var relEndX = puck.x - paddle.x;
+      var relEndY = puck.y - paddle.y;
 
-      var nx = distance > 0.001 ? dx / distance : 1;
-      var ny = distance > 0.001 ? dy / distance : 0;
-      var overlap = minDistance - Math.max(distance, 0.001);
+      var relMoveX = relEndX - relStartX;
+      var relMoveY = relEndY - relStartY;
+      var relMoveLengthSq =
+        relMoveX * relMoveX + relMoveY * relMoveY;
 
-      puck.x += nx * overlap;
-      puck.y += ny * overlap;
+      var hitTime = 0;
 
-      var relativeVx = puck.vx - paddle.vx;
-      var relativeVy = puck.vy - paddle.vy;
+      if (relMoveLengthSq > 0.000001) {
+        hitTime = clamp(
+          -(
+            relStartX * relMoveX +
+            relStartY * relMoveY
+          ) / relMoveLengthSq,
+          0,
+          1
+        );
+      }
+
+      var closestX = relStartX + relMoveX * hitTime;
+      var closestY = relStartY + relMoveY * hitTime;
+      var closestDistance = Math.hypot(closestX, closestY);
+
+      var finalDistance = Math.hypot(relEndX, relEndY);
+
+      if (
+        closestDistance >= minDistance &&
+        finalDistance >= minDistance
+      ) {
+        return false;
+      }
+
+      /*
+       * Reconstruct both bodies at the closest point along this frame.
+       * This prevents a fast paddle from visually passing through the puck
+       * before the response is applied.
+       */
+      var paddleHitX =
+        paddle.previousX +
+        (paddle.x - paddle.previousX) * hitTime;
+      var paddleHitY =
+        paddle.previousY +
+        (paddle.y - paddle.previousY) * hitTime;
+
+      var nx;
+      var ny;
+
+      if (closestDistance > 0.001) {
+        nx = closestX / closestDistance;
+        ny = closestY / closestDistance;
+      } else if (finalDistance > 0.001) {
+        nx = relEndX / finalDistance;
+        ny = relEndY / finalDistance;
+      } else {
+        var relativeSpeed = Math.hypot(
+          puck.vx - paddle.vx,
+          puck.vy - paddle.vy
+        );
+
+        nx = relativeSpeed > 0.001
+          ? -(puck.vx - paddle.vx) / relativeSpeed
+          : 1;
+        ny = relativeSpeed > 0.001
+          ? -(puck.vy - paddle.vy) / relativeSpeed
+          : 0;
+      }
+
+      puck.x = paddleHitX + nx * minDistance;
+      puck.y = paddleHitY + ny * minDistance;
+
+      /*
+       * Limit the velocity contribution of an extremely fast mouse teleport.
+       * The visible cursor still feels strong, but one large frame jump no
+       * longer injects an absurd amount of kinetic energy.
+       */
+      var paddleVx = paddle.vx;
+      var paddleVy = paddle.vy;
+      var paddleSpeed = Math.hypot(paddleVx, paddleVy);
+      var maxTransferSpeed = 1500;
+
+      if (paddleSpeed > maxTransferSpeed) {
+        var paddleScale = maxTransferSpeed / paddleSpeed;
+        paddleVx *= paddleScale;
+        paddleVy *= paddleScale;
+      }
+
+      var relativeVx = puck.vx - paddleVx;
+      var relativeVy = puck.vy - paddleVy;
       var alongNormal = relativeVx * nx + relativeVy * ny;
 
       if (alongNormal < 0) {
-        puck.vx -= (1.88 * alongNormal) * nx;
-        puck.vy -= (1.88 * alongNormal) * ny;
+        puck.vx -= (1.82 * alongNormal) * nx;
+        puck.vy -= (1.82 * alongNormal) * ny;
       }
 
-      puck.vx += paddle.vx * strength;
-      puck.vy += paddle.vy * strength;
+      puck.vx += paddleVx * strength;
+      puck.vy += paddleVy * strength;
 
-      var speed = Math.hypot(puck.vx, puck.vy);
-      if (speed > MAX_PUCK_SPEED) {
-        puck.vx = puck.vx / speed * MAX_PUCK_SPEED;
-        puck.vy = puck.vy / speed * MAX_PUCK_SPEED;
-      }
+      limitPuckSpeed();
+      return true;
     }
 
     function resetPuck(direction) {
@@ -425,7 +522,7 @@ layout: page
         if (!running || ended) return;
 
         var vertical = ((Math.random() * 2) - 1) * 95;
-        puck.vx = 255 * direction;
+        puck.vx = 235 * direction;
         puck.vy = vertical;
       }, 360);
     }
@@ -459,12 +556,23 @@ layout: page
     }
 
     function updatePuck(dt) {
+      var puckStartX = puck.x;
+      var puckStartY = puck.y;
+
       puck.x += puck.vx * dt;
       puck.y += puck.vy * dt;
 
       var drag = Math.pow(0.996, dt * 60);
       puck.vx *= drag;
       puck.vy *= drag;
+
+      /*
+       * Test paddle collision BEFORE wall correction.
+       * This preserves the true straight motion segment for swept detection.
+       */
+      collidePaddle(player, 0.30, puckStartX, puckStartY);
+      collidePaddle(ai, 0.18, puckStartX, puckStartY);
+      limitPuckSpeed();
 
       if (puck.y - puck.radius < 8) {
         puck.y = 8 + puck.radius;
@@ -496,12 +604,16 @@ layout: page
         }
       }
 
-      collidePaddle(player, 0.32);
-      collidePaddle(ai, 0.19);
+      /*
+       * Apply the cap every frame as a final safety net. Wall bounces and
+       * chained contacts can never push the puck over MAX_PUCK_SPEED.
+       */
+      limitPuckSpeed();
 
       var speed = Math.hypot(puck.vx, puck.vy);
       if (speed < 34 && running) {
         puck.vx += (puck.x < WIDTH / 2 ? 1 : -1) * 4.5;
+        limitPuckSpeed();
       }
     }
 
