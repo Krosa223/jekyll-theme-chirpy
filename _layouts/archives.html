@@ -5,9 +5,6 @@ layout: page
 
 <style>
   .archive-hockey {
-    --hockey-line: rgba(240, 252, 255, 0.86);
-    --hockey-blue: rgba(103, 197, 224, 0.78);
-    --hockey-red: rgba(235, 118, 130, 0.78);
     --hockey-ink: var(--text-color);
     display: grid;
     gap: 0.9rem;
@@ -23,10 +20,6 @@ layout: page
     flex-wrap: wrap;
   }
 
-  .archive-hockey-status {
-    min-width: 0;
-  }
-
   .archive-hockey-score {
     display: flex;
     align-items: baseline;
@@ -39,7 +32,7 @@ layout: page
     line-height: 1;
   }
 
-  .archive-hockey-score span {
+  .archive-hockey-score > span {
     opacity: 0.62;
   }
 
@@ -58,57 +51,34 @@ layout: page
   .archive-hockey-actions button {
     min-height: 2.35rem;
     padding: 0.45rem 0.8rem;
-    border: 1px solid rgb(255 255 255 / 0.56);
+    border: 1px solid rgb(255 255 255 / 0.62);
     border-radius: 999px;
     background: rgb(255 255 255 / 0.48);
     color: var(--hockey-ink);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.62);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.66);
     -webkit-backdrop-filter: blur(8px) saturate(120%);
     backdrop-filter: blur(8px) saturate(120%);
-  }
-
-  .archive-hockey-actions button:hover {
-    background: rgb(255 255 255 / 0.62);
-  }
-
-  .archive-hockey-actions button:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
   }
 
   .archive-hockey-rink {
     position: relative;
     overflow: hidden;
-    border: 1px solid rgb(255 255 255 / 0.72);
+    border: 1px solid rgb(255 255 255 / 0.74);
     border-radius: 1.25rem;
     background:
       linear-gradient(90deg, rgb(83 178 218 / 0.10), transparent 34%, transparent 66%, rgb(232 101 117 / 0.10)),
-      linear-gradient(180deg, rgb(247 253 255 / 0.50), rgb(218 241 248 / 0.24));
+      linear-gradient(180deg, rgb(247 253 255 / 0.46), rgb(218 241 248 / 0.22));
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.84),
-      0 14px 34px rgb(14 42 57 / 0.14);
+      0 14px 34px rgb(14 42 57 / 0.12);
     -webkit-backdrop-filter: blur(7px) saturate(112%);
     backdrop-filter: blur(7px) saturate(112%);
-  }
-
-  .archive-hockey-rink::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(115deg, transparent 20%, rgb(255 255 255 / 0.13) 36%, transparent 53%),
-      repeating-linear-gradient(
-        0deg,
-        rgb(255 255 255 / 0.026) 0 1px,
-        transparent 1px 5px
-      );
-    mix-blend-mode: screen;
   }
 
   .archive-hockey-canvas {
     display: block;
     width: 100%;
+    height: auto;
     aspect-ratio: 9 / 5;
     touch-action: none;
   }
@@ -119,19 +89,19 @@ layout: page
     display: grid;
     place-items: center;
     pointer-events: none;
-    opacity: 0;
-    transition: opacity 160ms ease;
+    opacity: 1;
+    transition: opacity 150ms ease;
   }
 
-  .archive-hockey-message.is-visible {
-    opacity: 1;
+  .archive-hockey-message:not(.is-visible) {
+    opacity: 0;
   }
 
   .archive-hockey-message > span {
     padding: 0.55rem 0.9rem;
-    border: 1px solid rgb(255 255 255 / 0.66);
+    border: 1px solid rgb(255 255 255 / 0.68);
     border-radius: 999px;
-    background: rgb(247 252 255 / 0.70);
+    background: rgb(247 252 255 / 0.74);
     color: #173849;
     font-weight: 700;
     box-shadow: 0 8px 22px rgb(15 38 52 / 0.14);
@@ -146,14 +116,6 @@ layout: page
   }
 
   @media (max-width: 640px) {
-    .archive-hockey {
-      gap: 0.7rem;
-    }
-
-    .archive-hockey-toolbar {
-      align-items: flex-start;
-    }
-
     .archive-hockey-actions {
       width: 100%;
     }
@@ -172,7 +134,7 @@ layout: page
 
 <div class="archive-hockey" data-archive-hockey>
   <div class="archive-hockey-toolbar">
-    <div class="archive-hockey-status">
+    <div>
       <div class="archive-hockey-score" aria-live="polite">
         <strong><span data-player-score>0</span> : <span data-ai-score>0</span></strong>
         <span>先到 5 分</span>
@@ -198,719 +160,701 @@ layout: page
       tabindex="0"
     ></canvas>
 
-    <div class="archive-hockey-message" data-hockey-message aria-live="polite">
-      <span>点击“开始”</span>
+    <div class="archive-hockey-message is-visible" data-hockey-message aria-live="polite">
+      <span>正在加载冰场…</span>
     </div>
   </div>
 </div>
 
 <script data-swup-reload-script>
-  (function initArchiveHockey() {
-    var root = document.querySelector('[data-archive-hockey]');
-    if (!root || root.dataset.hockeyReady === 'true') return;
+(function () {
+  'use strict';
 
-    root.dataset.hockeyReady = 'true';
+  var root = document.querySelector('[data-archive-hockey]');
+  if (!root || root.dataset.hockeyReady === 'true') return;
 
-    var canvas = root.querySelector('[data-hockey-canvas]');
-    var context = canvas.getContext('2d');
-    var toggleButton = root.querySelector('[data-hockey-toggle]');
-    var resetButton = root.querySelector('[data-hockey-reset]');
-    var playerScoreNode = root.querySelector('[data-player-score]');
-    var aiScoreNode = root.querySelector('[data-ai-score]');
-    var message = root.querySelector('[data-hockey-message]');
-    var messageText = message.querySelector('span');
+  root.dataset.hockeyReady = 'true';
 
-    var controller = new AbortController();
-    var signal = controller.signal;
-    var animationFrame = 0;
-    var resizeObserver = null;
+  var canvas = root.querySelector('[data-hockey-canvas]');
+  var context = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+  var toggleButton = root.querySelector('[data-hockey-toggle]');
+  var resetButton = root.querySelector('[data-hockey-reset]');
+  var playerScoreNode = root.querySelector('[data-player-score]');
+  var aiScoreNode = root.querySelector('[data-ai-score]');
+  var message = root.querySelector('[data-hockey-message]');
+  var messageText = message ? message.querySelector('span') : null;
 
-    var WIDTH = 900;
-    var HEIGHT = 500;
-    var GOAL_HALF = 74;
-    var PUCK_RADIUS = 13;
-    var AI_RADIUS = 24;
-    var DEFAULT_PLAYER_RADIUS = 18;
-    var WIN_SCORE = 5;
-    // Hard speed cap: keeps fast paddle hits and repeated rebounds controllable.
-    var MAX_PUCK_SPEED = 650;
-    var AI_SPEED = 300;
+  if (
+    !canvas ||
+    !context ||
+    !toggleButton ||
+    !resetButton ||
+    !playerScoreNode ||
+    !aiScoreNode ||
+    !message ||
+    !messageText
+  ) {
+    if (message && messageText) {
+      message.classList.add('is-visible');
+      messageText.textContent = '冰场初始化失败';
+    }
+    return;
+  }
 
-    var running = false;
-    var ended = false;
-    var playerScore = 0;
-    var aiScore = 0;
-    var lastTime = 0;
-    var pointerInside = false;
-    var fallbackPointer = { x: 190, y: HEIGHT / 2, active: false };
+  var controller = new AbortController();
+  var signal = controller.signal;
+  var animationFrame = 0;
+  var serveTimer = null;
 
-    var player = {
-      x: 190,
-      y: HEIGHT / 2,
-      previousX: 190,
-      previousY: HEIGHT / 2,
-      vx: 0,
-      vy: 0,
-      radius: DEFAULT_PLAYER_RADIUS
+  var WIDTH = 900;
+  var HEIGHT = 500;
+  var GOAL_HALF = 74;
+  var PUCK_RADIUS = 13;
+  var AI_RADIUS = 24;
+  var PLAYER_RADIUS = 18;
+  var WIN_SCORE = 5;
+  var MAX_PUCK_SPEED = 620;
+  var MAX_PADDLE_TRANSFER_SPEED = 1350;
+  var AI_SPEED = 285;
+
+  var running = false;
+  var ended = false;
+  var playerScore = 0;
+  var aiScore = 0;
+  var lastTime = 0;
+  var pointerInside = false;
+
+  var fallbackPointer = {
+    x: 190,
+    y: HEIGHT / 2,
+    active: false
+  };
+
+  var player = {
+    x: 190,
+    y: HEIGHT / 2,
+    previousX: 190,
+    previousY: HEIGHT / 2,
+    vx: 0,
+    vy: 0,
+    radius: PLAYER_RADIUS
+  };
+
+  var ai = {
+    x: WIDTH - 135,
+    y: HEIGHT / 2,
+    previousX: WIDTH - 135,
+    previousY: HEIGHT / 2,
+    vx: 0,
+    vy: 0,
+    radius: AI_RADIUS
+  };
+
+  var puck = {
+    x: WIDTH / 2,
+    y: HEIGHT / 2,
+    vx: 0,
+    vy: 0,
+    radius: PUCK_RADIUS
+  };
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function setMessage(text, visible) {
+    messageText.textContent = text || '';
+    message.classList.toggle('is-visible', Boolean(visible));
+  }
+
+  function syncScore() {
+    playerScoreNode.textContent = String(playerScore);
+    aiScoreNode.textContent = String(aiScore);
+  }
+
+  function pointFromClient(clientX, clientY) {
+    var rect = canvas.getBoundingClientRect();
+    var width = Math.max(1, rect.width);
+    var height = Math.max(1, rect.height);
+
+    return {
+      x: (clientX - rect.left) * WIDTH / width,
+      y: (clientY - rect.top) * HEIGHT / height,
+      scale: WIDTH / width,
+      inside:
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
     };
+  }
 
-    var ai = {
-      x: WIDTH - 135,
-      y: HEIGHT / 2,
-      previousX: WIDTH - 135,
-      previousY: HEIGHT / 2,
-      vx: 0,
-      vy: 0,
-      radius: AI_RADIUS
-    };
+  function readVisibleCursor() {
+    var api = window.krosaGlassCursor;
 
-    var puck = {
-      x: WIDTH / 2,
-      y: HEIGHT / 2,
-      vx: 0,
-      vy: 0,
-      radius: PUCK_RADIUS
-    };
+    if (api && typeof api.getState === 'function') {
+      var state = api.getState();
 
-    function clamp(value, min, max) {
-      return Math.max(min, Math.min(max, value));
-    }
+      if (state && state.visible) {
+        var mapped = pointFromClient(state.x, state.y);
 
-    function setMessage(text, visible) {
-      messageText.textContent = text;
-      message.classList.toggle('is-visible', Boolean(visible));
-    }
-
-    function syncScore() {
-      playerScoreNode.textContent = String(playerScore);
-      aiScoreNode.textContent = String(aiScore);
-    }
-
-    function canvasPointFromClient(clientX, clientY) {
-      var rect = canvas.getBoundingClientRect();
-
-      return {
-        x: (clientX - rect.left) * WIDTH / Math.max(1, rect.width),
-        y: (clientY - rect.top) * HEIGHT / Math.max(1, rect.height),
-        inside:
-          clientX >= rect.left &&
-          clientX <= rect.right &&
-          clientY >= rect.top &&
-          clientY <= rect.bottom,
-        scale: WIDTH / Math.max(1, rect.width)
-      };
-    }
-
-    function readVisibleCursor() {
-      var cursorApi = window.krosaGlassCursor;
-
-      if (cursorApi && typeof cursorApi.getState === 'function') {
-        var state = cursorApi.getState();
-
-        if (state && state.visible) {
-          var mapped = canvasPointFromClient(state.x, state.y);
-
-          if (mapped.inside) {
-            return {
-              x: mapped.x,
-              y: mapped.y,
-              radius: clamp((state.radius || 16) * mapped.scale, 14, 25),
-              active: true
-            };
-          }
+        if (mapped.inside) {
+          return {
+            x: mapped.x,
+            y: mapped.y,
+            radius: clamp((state.radius || 16) * mapped.scale, 14, 26),
+            active: true
+          };
         }
       }
+    }
 
-      if (fallbackPointer.active && pointerInside) {
-        return {
-          x: fallbackPointer.x,
-          y: fallbackPointer.y,
-          radius: DEFAULT_PLAYER_RADIUS,
-          active: true
-        };
-      }
-
+    if (fallbackPointer.active && pointerInside) {
       return {
-        x: player.x,
-        y: player.y,
-        radius: player.radius,
-        active: false
+        x: fallbackPointer.x,
+        y: fallbackPointer.y,
+        radius: PLAYER_RADIUS,
+        active: true
       };
     }
 
-    function updatePlayer(dt) {
-      var cursor = readVisibleCursor();
+    return {
+      x: player.x,
+      y: player.y,
+      radius: player.radius,
+      active: false
+    };
+  }
 
-      player.previousX = player.x;
-      player.previousY = player.y;
-      player.radius = cursor.radius || DEFAULT_PLAYER_RADIUS;
+  function updatePlayer(dt) {
+    var cursor = readVisibleCursor();
 
-      if (cursor.active) {
-        player.x = clamp(cursor.x, player.radius + 8, WIDTH - player.radius - 8);
-        player.y = clamp(cursor.y, player.radius + 8, HEIGHT - player.radius - 8);
-      }
+    player.previousX = player.x;
+    player.previousY = player.y;
+    player.radius = cursor.radius || PLAYER_RADIUS;
 
-      player.vx = (player.x - player.previousX) / Math.max(dt, 0.001);
-      player.vy = (player.y - player.previousY) / Math.max(dt, 0.001);
+    if (cursor.active) {
+      player.x = clamp(cursor.x, player.radius + 8, WIDTH - player.radius - 8);
+      player.y = clamp(cursor.y, player.radius + 8, HEIGHT - player.radius - 8);
     }
 
-    function updateAi(dt) {
-      ai.previousX = ai.x;
-      ai.previousY = ai.y;
+    player.vx = (player.x - player.previousX) / Math.max(dt, 0.001);
+    player.vy = (player.y - player.previousY) / Math.max(dt, 0.001);
+  }
 
-      var homeX = WIDTH - 135;
-      var targetX = puck.x > WIDTH * 0.48
+  function updateAi(dt) {
+    ai.previousX = ai.x;
+    ai.previousY = ai.y;
+
+    var homeX = WIDTH - 135;
+    var targetX =
+      puck.x > WIDTH * 0.48
         ? clamp(puck.x + 52, WIDTH * 0.56, WIDTH - 76)
         : homeX;
-      var targetY = puck.x > WIDTH * 0.42 ? puck.y : HEIGHT / 2;
+    var targetY = puck.x > WIDTH * 0.42 ? puck.y : HEIGHT / 2;
 
-      var dx = targetX - ai.x;
-      var dy = targetY - ai.y;
-      var distance = Math.hypot(dx, dy);
-      var maxStep = AI_SPEED * dt;
+    var dx = targetX - ai.x;
+    var dy = targetY - ai.y;
+    var distance = Math.hypot(dx, dy);
+    var maxStep = AI_SPEED * dt;
 
-      if (distance > 0.01) {
-        var step = Math.min(distance, maxStep);
-        ai.x += dx / distance * step;
-        ai.y += dy / distance * step;
-      }
-
-      ai.x = clamp(ai.x, WIDTH * 0.54 + ai.radius, WIDTH - ai.radius - 18);
-      ai.y = clamp(ai.y, ai.radius + 12, HEIGHT - ai.radius - 12);
-
-      ai.vx = (ai.x - ai.previousX) / Math.max(dt, 0.001);
-      ai.vy = (ai.y - ai.previousY) / Math.max(dt, 0.001);
+    if (distance > 0.01) {
+      var step = Math.min(distance, maxStep);
+      ai.x += dx / distance * step;
+      ai.y += dy / distance * step;
     }
 
-    function limitPuckSpeed() {
-      var speed = Math.hypot(puck.vx, puck.vy);
+    ai.x = clamp(ai.x, WIDTH * 0.54 + ai.radius, WIDTH - ai.radius - 18);
+    ai.y = clamp(ai.y, ai.radius + 12, HEIGHT - ai.radius - 12);
 
-      if (speed > MAX_PUCK_SPEED) {
-        var scale = MAX_PUCK_SPEED / Math.max(speed, 0.001);
-        puck.vx *= scale;
-        puck.vy *= scale;
-      }
+    ai.vx = (ai.x - ai.previousX) / Math.max(dt, 0.001);
+    ai.vy = (ai.y - ai.previousY) / Math.max(dt, 0.001);
+  }
+
+  function limitPuckSpeed() {
+    var speed = Math.hypot(puck.vx, puck.vy);
+
+    if (speed > MAX_PUCK_SPEED) {
+      var scale = MAX_PUCK_SPEED / Math.max(speed, 0.001);
+      puck.vx *= scale;
+      puck.vy *= scale;
+    }
+  }
+
+  /*
+   * Swept-circle collision:
+   * test the entire relative-motion segment during this frame.
+   * This prevents a fast cursor from tunneling through the puck.
+   */
+  function collidePaddle(paddle, strength, puckStartX, puckStartY) {
+    var minDistance = puck.radius + paddle.radius;
+
+    var relStartX = puckStartX - paddle.previousX;
+    var relStartY = puckStartY - paddle.previousY;
+    var relEndX = puck.x - paddle.x;
+    var relEndY = puck.y - paddle.y;
+
+    var moveX = relEndX - relStartX;
+    var moveY = relEndY - relStartY;
+    var moveLengthSq = moveX * moveX + moveY * moveY;
+
+    var hitTime = 0;
+
+    if (moveLengthSq > 0.000001) {
+      hitTime = clamp(
+        -(
+          relStartX * moveX +
+          relStartY * moveY
+        ) / moveLengthSq,
+        0,
+        1
+      );
     }
 
-    /*
-     * Swept circle collision.
-     *
-     * The old version only checked the two circles at the END of a frame.
-     * If the glass cursor moved from one side of the puck to the other within
-     * a single frame, the circles were never overlapping at the sampled end
-     * position and the hit was missed ("tunneling").
-     *
-     * Here we test the entire relative motion segment from previous -> current
-     * position, so even a very fast mouse sweep can hit the puck.
-     */
-    function collidePaddle(paddle, strength, puckStartX, puckStartY) {
-      var minDistance = puck.radius + paddle.radius;
+    var closestX = relStartX + moveX * hitTime;
+    var closestY = relStartY + moveY * hitTime;
+    var closestDistance = Math.hypot(closestX, closestY);
+    var finalDistance = Math.hypot(relEndX, relEndY);
 
-      var relStartX = puckStartX - paddle.previousX;
-      var relStartY = puckStartY - paddle.previousY;
-      var relEndX = puck.x - paddle.x;
-      var relEndY = puck.y - paddle.y;
+    if (
+      closestDistance >= minDistance &&
+      finalDistance >= minDistance
+    ) {
+      return false;
+    }
 
-      var relMoveX = relEndX - relStartX;
-      var relMoveY = relEndY - relStartY;
-      var relMoveLengthSq =
-        relMoveX * relMoveX + relMoveY * relMoveY;
+    var paddleHitX =
+      paddle.previousX + (paddle.x - paddle.previousX) * hitTime;
+    var paddleHitY =
+      paddle.previousY + (paddle.y - paddle.previousY) * hitTime;
 
-      var hitTime = 0;
+    var nx;
+    var ny;
 
-      if (relMoveLengthSq > 0.000001) {
-        hitTime = clamp(
-          -(
-            relStartX * relMoveX +
-            relStartY * relMoveY
-          ) / relMoveLengthSq,
-          0,
-          1
-        );
-      }
+    if (closestDistance > 0.001) {
+      nx = closestX / closestDistance;
+      ny = closestY / closestDistance;
+    } else if (finalDistance > 0.001) {
+      nx = relEndX / finalDistance;
+      ny = relEndY / finalDistance;
+    } else {
+      nx = 1;
+      ny = 0;
+    }
 
-      var closestX = relStartX + relMoveX * hitTime;
-      var closestY = relStartY + relMoveY * hitTime;
-      var closestDistance = Math.hypot(closestX, closestY);
+    puck.x = paddleHitX + nx * minDistance;
+    puck.y = paddleHitY + ny * minDistance;
 
-      var finalDistance = Math.hypot(relEndX, relEndY);
+    var paddleVx = paddle.vx;
+    var paddleVy = paddle.vy;
+    var paddleSpeed = Math.hypot(paddleVx, paddleVy);
 
-      if (
-        closestDistance >= minDistance &&
-        finalDistance >= minDistance
-      ) {
-        return false;
-      }
+    if (paddleSpeed > MAX_PADDLE_TRANSFER_SPEED) {
+      var paddleScale = MAX_PADDLE_TRANSFER_SPEED / paddleSpeed;
+      paddleVx *= paddleScale;
+      paddleVy *= paddleScale;
+    }
 
-      /*
-       * Reconstruct both bodies at the closest point along this frame.
-       * This prevents a fast paddle from visually passing through the puck
-       * before the response is applied.
-       */
-      var paddleHitX =
-        paddle.previousX +
-        (paddle.x - paddle.previousX) * hitTime;
-      var paddleHitY =
-        paddle.previousY +
-        (paddle.y - paddle.previousY) * hitTime;
+    var relativeVx = puck.vx - paddleVx;
+    var relativeVy = puck.vy - paddleVy;
+    var alongNormal = relativeVx * nx + relativeVy * ny;
 
-      var nx;
-      var ny;
+    if (alongNormal < 0) {
+      puck.vx -= 1.78 * alongNormal * nx;
+      puck.vy -= 1.78 * alongNormal * ny;
+    }
 
-      if (closestDistance > 0.001) {
-        nx = closestX / closestDistance;
-        ny = closestY / closestDistance;
-      } else if (finalDistance > 0.001) {
-        nx = relEndX / finalDistance;
-        ny = relEndY / finalDistance;
-      } else {
-        var relativeSpeed = Math.hypot(
-          puck.vx - paddle.vx,
-          puck.vy - paddle.vy
-        );
+    puck.vx += paddleVx * strength;
+    puck.vy += paddleVy * strength;
 
-        nx = relativeSpeed > 0.001
-          ? -(puck.vx - paddle.vx) / relativeSpeed
-          : 1;
-        ny = relativeSpeed > 0.001
-          ? -(puck.vy - paddle.vy) / relativeSpeed
-          : 0;
-      }
+    limitPuckSpeed();
+    return true;
+  }
 
-      puck.x = paddleHitX + nx * minDistance;
-      puck.y = paddleHitY + ny * minDistance;
+  function clearServeTimer() {
+    if (serveTimer !== null) {
+      window.clearTimeout(serveTimer);
+      serveTimer = null;
+    }
+  }
 
-      /*
-       * Limit the velocity contribution of an extremely fast mouse teleport.
-       * The visible cursor still feels strong, but one large frame jump no
-       * longer injects an absurd amount of kinetic energy.
-       */
-      var paddleVx = paddle.vx;
-      var paddleVy = paddle.vy;
-      var paddleSpeed = Math.hypot(paddleVx, paddleVy);
-      var maxTransferSpeed = 1500;
+  function resetPuck(direction) {
+    clearServeTimer();
 
-      if (paddleSpeed > maxTransferSpeed) {
-        var paddleScale = maxTransferSpeed / paddleSpeed;
-        paddleVx *= paddleScale;
-        paddleVy *= paddleScale;
-      }
+    puck.x = WIDTH / 2;
+    puck.y = HEIGHT / 2;
+    puck.vx = 0;
+    puck.vy = 0;
 
-      var relativeVx = puck.vx - paddleVx;
-      var relativeVy = puck.vy - paddleVy;
-      var alongNormal = relativeVx * nx + relativeVy * ny;
+    serveTimer = window.setTimeout(function () {
+      serveTimer = null;
 
-      if (alongNormal < 0) {
-        puck.vx -= (1.82 * alongNormal) * nx;
-        puck.vy -= (1.82 * alongNormal) * ny;
-      }
+      if (!running || ended) return;
 
-      puck.vx += paddleVx * strength;
-      puck.vy += paddleVy * strength;
-
+      puck.vx = 225 * direction;
+      puck.vy = ((Math.random() * 2) - 1) * 88;
       limitPuckSpeed();
-      return true;
-    }
+    }, 350);
+  }
 
-    function resetPuck(direction) {
-      puck.x = WIDTH / 2;
-      puck.y = HEIGHT / 2;
+  function scoreGoal(playerScored) {
+    if (playerScored) playerScore += 1;
+    else aiScore += 1;
+
+    syncScore();
+
+    if (playerScore >= WIN_SCORE || aiScore >= WIN_SCORE) {
+      ended = true;
+      running = false;
+      toggleButton.textContent = '再来一局';
+      setMessage(playerScore >= WIN_SCORE ? '你赢了！' : '电脑赢了', true);
       puck.vx = 0;
       puck.vy = 0;
-
-      window.setTimeout(function () {
-        if (!running || ended) return;
-
-        var vertical = ((Math.random() * 2) - 1) * 95;
-        puck.vx = 235 * direction;
-        puck.vy = vertical;
-      }, 360);
+      return;
     }
 
-    function scoreGoal(playerScored) {
-      if (playerScored) {
-        playerScore += 1;
-      } else {
-        aiScore += 1;
-      }
+    setMessage(playerScored ? '得分！' : '对方得分', true);
 
-      syncScore();
+    window.setTimeout(function () {
+      if (!ended) setMessage('', false);
+    }, 480);
 
-      if (playerScore >= WIN_SCORE || aiScore >= WIN_SCORE) {
-        ended = true;
-        running = false;
-        toggleButton.textContent = '再来一局';
-        setMessage(playerScore >= WIN_SCORE ? '你赢了！' : '电脑赢了', true);
-        puck.vx = 0;
-        puck.vy = 0;
-        return;
-      }
+    resetPuck(playerScored ? -1 : 1);
+  }
 
-      setMessage(playerScored ? '得分！' : '对方得分', true);
+  function updatePuck(dt) {
+    var puckStartX = puck.x;
+    var puckStartY = puck.y;
 
-      window.setTimeout(function () {
-        if (!ended) setMessage('', false);
-      }, 520);
+    puck.x += puck.vx * dt;
+    puck.y += puck.vy * dt;
 
-      resetPuck(playerScored ? -1 : 1);
+    var drag = Math.pow(0.996, dt * 60);
+    puck.vx *= drag;
+    puck.vy *= drag;
+
+    collidePaddle(player, 0.28, puckStartX, puckStartY);
+    collidePaddle(ai, 0.17, puckStartX, puckStartY);
+    limitPuckSpeed();
+
+    if (puck.y - puck.radius < 8) {
+      puck.y = 8 + puck.radius;
+      puck.vy = Math.abs(puck.vy) * 0.975;
+    } else if (puck.y + puck.radius > HEIGHT - 8) {
+      puck.y = HEIGHT - 8 - puck.radius;
+      puck.vy = -Math.abs(puck.vy) * 0.975;
     }
 
-    function updatePuck(dt) {
-      var puckStartX = puck.x;
-      var puckStartY = puck.y;
+    var inGoalMouth = Math.abs(puck.y - HEIGHT / 2) <= GOAL_HALF;
 
-      puck.x += puck.vx * dt;
-      puck.y += puck.vy * dt;
+    if (puck.x + puck.radius < 0 && inGoalMouth) {
+      scoreGoal(false);
+      return;
+    }
 
-      var drag = Math.pow(0.996, dt * 60);
-      puck.vx *= drag;
-      puck.vy *= drag;
+    if (puck.x - puck.radius > WIDTH && inGoalMouth) {
+      scoreGoal(true);
+      return;
+    }
 
-      /*
-       * Test paddle collision BEFORE wall correction.
-       * This preserves the true straight motion segment for swept detection.
-       */
-      collidePaddle(player, 0.30, puckStartX, puckStartY);
-      collidePaddle(ai, 0.18, puckStartX, puckStartY);
+    if (!inGoalMouth) {
+      if (puck.x - puck.radius < 8) {
+        puck.x = 8 + puck.radius;
+        puck.vx = Math.abs(puck.vx) * 0.975;
+      } else if (puck.x + puck.radius > WIDTH - 8) {
+        puck.x = WIDTH - 8 - puck.radius;
+        puck.vx = -Math.abs(puck.vx) * 0.975;
+      }
+    }
+
+    limitPuckSpeed();
+
+    var speed = Math.hypot(puck.vx, puck.vy);
+    if (speed < 30 && running) {
+      puck.vx += (puck.x < WIDTH / 2 ? 1 : -1) * 4;
       limitPuckSpeed();
+    }
+  }
 
-      if (puck.y - puck.radius < 8) {
-        puck.y = 8 + puck.radius;
-        puck.vy = Math.abs(puck.vy) * 0.985;
-      } else if (puck.y + puck.radius > HEIGHT - 8) {
-        puck.y = HEIGHT - 8 - puck.radius;
-        puck.vy = -Math.abs(puck.vy) * 0.985;
-      }
+  function roundedRect(ctx, x, y, width, height, radius) {
+    var r = Math.min(radius, width / 2, height / 2);
 
-      var inGoalMouth = Math.abs(puck.y - HEIGHT / 2) <= GOAL_HALF;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.arcTo(x + width, y + height, x, y + height, r);
+    ctx.arcTo(x, y + height, x, y, r);
+    ctx.arcTo(x, y, x + width, y, r);
+    ctx.closePath();
+  }
 
-      if (puck.x + puck.radius < 0 && inGoalMouth) {
-        scoreGoal(false);
-        return;
-      }
+  function drawRink() {
+    context.clearRect(0, 0, WIDTH, HEIGHT);
 
-      if (puck.x - puck.radius > WIDTH && inGoalMouth) {
-        scoreGoal(true);
-        return;
-      }
+    var ice = context.createLinearGradient(0, 0, WIDTH, HEIGHT);
+    ice.addColorStop(0, 'rgba(247, 253, 255, 0.34)');
+    ice.addColorStop(0.5, 'rgba(217, 242, 250, 0.14)');
+    ice.addColorStop(1, 'rgba(247, 253, 255, 0.27)');
+    context.fillStyle = ice;
+    context.fillRect(0, 0, WIDTH, HEIGHT);
 
-      if (!inGoalMouth) {
-        if (puck.x - puck.radius < 8) {
-          puck.x = 8 + puck.radius;
-          puck.vx = Math.abs(puck.vx) * 0.985;
-        } else if (puck.x + puck.radius > WIDTH - 8) {
-          puck.x = WIDTH - 8 - puck.radius;
-          puck.vx = -Math.abs(puck.vx) * 0.985;
-        }
-      }
+    context.lineWidth = 4;
+    context.strokeStyle = 'rgba(246, 253, 255, 0.94)';
+    roundedRect(context, 7, 7, WIDTH - 14, HEIGHT - 14, 30);
+    context.stroke();
 
-      /*
-       * Apply the cap every frame as a final safety net. Wall bounces and
-       * chained contacts can never push the puck over MAX_PUCK_SPEED.
-       */
-      limitPuckSpeed();
+    context.lineWidth = 2;
+    context.strokeStyle = 'rgba(94, 187, 217, 0.72)';
+    context.beginPath();
+    context.moveTo(WIDTH / 2, 14);
+    context.lineTo(WIDTH / 2, HEIGHT - 14);
+    context.stroke();
 
-      var speed = Math.hypot(puck.vx, puck.vy);
-      if (speed < 34 && running) {
-        puck.vx += (puck.x < WIDTH / 2 ? 1 : -1) * 4.5;
-        limitPuckSpeed();
-      }
+    context.fillStyle = 'rgba(94, 187, 217, 0.10)';
+    context.beginPath();
+    context.arc(WIDTH / 2, HEIGHT / 2, 72, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+
+    context.strokeStyle = 'rgba(224, 88, 108, 0.66)';
+    context.beginPath();
+    context.moveTo(95, 14);
+    context.lineTo(95, HEIGHT - 14);
+    context.moveTo(WIDTH - 95, 14);
+    context.lineTo(WIDTH - 95, HEIGHT - 14);
+    context.stroke();
+
+    context.lineWidth = 5;
+    context.strokeStyle = 'rgba(255, 255, 255, 0.84)';
+    context.beginPath();
+    context.moveTo(2, HEIGHT / 2 - GOAL_HALF);
+    context.lineTo(2, HEIGHT / 2 + GOAL_HALF);
+    context.moveTo(WIDTH - 2, HEIGHT / 2 - GOAL_HALF);
+    context.lineTo(WIDTH - 2, HEIGHT / 2 + GOAL_HALF);
+    context.stroke();
+
+    context.fillStyle = 'rgba(92, 183, 215, 0.18)';
+    context.fillRect(0, HEIGHT / 2 - GOAL_HALF, 28, GOAL_HALF * 2);
+    context.fillStyle = 'rgba(229, 95, 113, 0.18)';
+    context.fillRect(WIDTH - 28, HEIGHT / 2 - GOAL_HALF, 28, GOAL_HALF * 2);
+  }
+
+  function drawPuck() {
+    context.save();
+    context.shadowColor = 'rgba(13, 30, 39, 0.34)';
+    context.shadowBlur = 12;
+    context.shadowOffsetY = 4;
+    context.fillStyle = 'rgba(24, 34, 40, 0.96)';
+    context.beginPath();
+    context.arc(puck.x, puck.y, puck.radius, 0, Math.PI * 2);
+    context.fill();
+    context.shadowColor = 'transparent';
+    context.strokeStyle = 'rgba(255, 255, 255, 0.46)';
+    context.lineWidth = 1.5;
+    context.stroke();
+    context.restore();
+  }
+
+  function drawAi() {
+    context.save();
+    context.shadowColor = 'rgba(110, 35, 50, 0.30)';
+    context.shadowBlur = 14;
+    context.fillStyle = 'rgba(220, 86, 107, 0.72)';
+    context.beginPath();
+    context.arc(ai.x, ai.y, ai.radius, 0, Math.PI * 2);
+    context.fill();
+    context.shadowColor = 'transparent';
+    context.strokeStyle = 'rgba(255, 255, 255, 0.75)';
+    context.lineWidth = 2;
+    context.stroke();
+    context.restore();
+  }
+
+  function drawFallbackPlayer() {
+    var api = window.krosaGlassCursor;
+    var usingGlassCursor =
+      api &&
+      typeof api.getState === 'function' &&
+      window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    if (usingGlassCursor && pointerInside) return;
+
+    context.save();
+    context.fillStyle = 'rgba(72, 169, 207, 0.58)';
+    context.strokeStyle = 'rgba(255, 255, 255, 0.80)';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+    context.restore();
+  }
+
+  function render() {
+    drawRink();
+    drawAi();
+    drawFallbackPlayer();
+    drawPuck();
+  }
+
+  function frame(time) {
+    animationFrame = 0;
+
+    if (!lastTime) lastTime = time;
+    var dt = clamp((time - lastTime) / 1000, 0, 0.032);
+    lastTime = time;
+
+    updatePlayer(dt);
+
+    if (running && !ended) {
+      updateAi(dt);
+      updatePuck(dt);
     }
 
-    function roundedRect(ctx, x, y, width, height, radius) {
-      var r = Math.min(radius, width / 2, height / 2);
+    render();
+    animationFrame = window.requestAnimationFrame(frame);
+  }
 
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + width, y, x + width, y + height, r);
-      ctx.arcTo(x + width, y + height, x, y + height, r);
-      ctx.arcTo(x, y + height, x, y, r);
-      ctx.arcTo(x, y, x + width, y, r);
-      ctx.closePath();
-    }
-
-    function drawRink() {
-      context.clearRect(0, 0, WIDTH, HEIGHT);
-
-      context.save();
-
-      var ice = context.createLinearGradient(0, 0, WIDTH, HEIGHT);
-      ice.addColorStop(0, 'rgba(247, 253, 255, 0.35)');
-      ice.addColorStop(0.5, 'rgba(217, 242, 250, 0.16)');
-      ice.addColorStop(1, 'rgba(247, 253, 255, 0.28)');
-      context.fillStyle = ice;
-      context.fillRect(0, 0, WIDTH, HEIGHT);
-
-      context.lineWidth = 4;
-      context.strokeStyle = 'rgba(246, 253, 255, 0.90)';
-      roundedRect(context, 7, 7, WIDTH - 14, HEIGHT - 14, 30);
-      context.stroke();
-
-      context.lineWidth = 2;
-      context.strokeStyle = 'rgba(94, 187, 217, 0.66)';
-      context.beginPath();
-      context.moveTo(WIDTH / 2, 14);
-      context.lineTo(WIDTH / 2, HEIGHT - 14);
-      context.stroke();
-
-      context.fillStyle = 'rgba(94, 187, 217, 0.08)';
-      context.beginPath();
-      context.arc(WIDTH / 2, HEIGHT / 2, 72, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-
-      context.strokeStyle = 'rgba(224, 88, 108, 0.60)';
-      context.beginPath();
-      context.moveTo(95, 14);
-      context.lineTo(95, HEIGHT - 14);
-      context.moveTo(WIDTH - 95, 14);
-      context.lineTo(WIDTH - 95, HEIGHT - 14);
-      context.stroke();
-
-      context.lineWidth = 5;
-      context.strokeStyle = 'rgba(255, 255, 255, 0.78)';
-      context.beginPath();
-      context.moveTo(2, HEIGHT / 2 - GOAL_HALF);
-      context.lineTo(2, HEIGHT / 2 + GOAL_HALF);
-      context.moveTo(WIDTH - 2, HEIGHT / 2 - GOAL_HALF);
-      context.lineTo(WIDTH - 2, HEIGHT / 2 + GOAL_HALF);
-      context.stroke();
-
-      context.fillStyle = 'rgba(92, 183, 215, 0.16)';
-      context.fillRect(0, HEIGHT / 2 - GOAL_HALF, 28, GOAL_HALF * 2);
-      context.fillStyle = 'rgba(229, 95, 113, 0.16)';
-      context.fillRect(WIDTH - 28, HEIGHT / 2 - GOAL_HALF, 28, GOAL_HALF * 2);
-
-      context.restore();
-    }
-
-    function drawPuck() {
-      context.save();
-
-      context.shadowColor = 'rgba(13, 30, 39, 0.28)';
-      context.shadowBlur = 11;
-      context.shadowOffsetY = 4;
-      context.fillStyle = 'rgba(26, 38, 44, 0.90)';
-      context.beginPath();
-      context.arc(puck.x, puck.y, puck.radius, 0, Math.PI * 2);
-      context.fill();
-
-      context.shadowColor = 'transparent';
-      context.strokeStyle = 'rgba(255, 255, 255, 0.42)';
-      context.lineWidth = 1.5;
-      context.stroke();
-
-      context.restore();
-    }
-
-    function drawAi() {
-      context.save();
-
-      context.shadowColor = 'rgba(110, 35, 50, 0.24)';
-      context.shadowBlur = 13;
-      context.fillStyle = 'rgba(220, 86, 107, 0.66)';
-      context.beginPath();
-      context.arc(ai.x, ai.y, ai.radius, 0, Math.PI * 2);
-      context.fill();
-
-      context.shadowColor = 'transparent';
-      context.strokeStyle = 'rgba(255, 255, 255, 0.68)';
-      context.lineWidth = 2;
-      context.stroke();
-
-      context.restore();
-    }
-
-    function drawFallbackPlayer() {
-      var cursorApi = window.krosaGlassCursor;
-      var hasGlassCursor =
-        cursorApi &&
-        typeof cursorApi.getState === 'function' &&
-        window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-
-      if (hasGlassCursor && pointerInside) return;
-
-      context.save();
-      context.fillStyle = 'rgba(72, 169, 207, 0.54)';
-      context.strokeStyle = 'rgba(255, 255, 255, 0.76)';
-      context.lineWidth = 2;
-      context.beginPath();
-      context.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
-      context.fill();
-      context.stroke();
-      context.restore();
-    }
-
-    function render() {
-      drawRink();
-      drawAi();
-      drawFallbackPlayer();
-      drawPuck();
-    }
-
-    function frame(time) {
-      animationFrame = 0;
-
-      if (!lastTime) lastTime = time;
-      var dt = clamp((time - lastTime) / 1000, 0, 0.032);
-      lastTime = time;
-
-      updatePlayer(dt);
-
-      if (running && !ended) {
-        updateAi(dt);
-        updatePuck(dt);
-      }
-
-      render();
-      animationFrame = window.requestAnimationFrame(frame);
-    }
-
-    function resizeCanvas() {
-      var dpr = clamp(window.devicePixelRatio || 1, 1, 2);
-      canvas.width = Math.round(WIDTH * dpr);
-      canvas.height = Math.round(HEIGHT * dpr);
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-      render();
-    }
-
-    function startGame() {
-      if (ended) {
-        playerScore = 0;
-        aiScore = 0;
-        ended = false;
-        syncScore();
-        resetPuck(1);
-      }
-
-      running = true;
-      toggleButton.textContent = '暂停';
-      setMessage('', false);
-
-      if (Math.hypot(puck.vx, puck.vy) < 1) {
-        resetPuck(1);
-      }
-    }
-
-    function pauseGame() {
-      running = false;
-      toggleButton.textContent = '继续';
-      setMessage('已暂停', true);
-    }
-
-    function resetGame() {
-      running = false;
-      ended = false;
+  function startGame() {
+    if (ended) {
       playerScore = 0;
       aiScore = 0;
+      ended = false;
       syncScore();
-
-      player.x = 190;
-      player.y = HEIGHT / 2;
-      ai.x = WIDTH - 135;
-      ai.y = HEIGHT / 2;
-
-      puck.x = WIDTH / 2;
-      puck.y = HEIGHT / 2;
-      puck.vx = 0;
-      puck.vy = 0;
-
-      toggleButton.textContent = '开始';
-      setMessage('点击“开始”', true);
-      render();
     }
 
-    function moveFallbackPointer(event) {
-      var mapped = canvasPointFromClient(event.clientX, event.clientY);
-      pointerInside = mapped.inside;
-      fallbackPointer.x = mapped.x;
-      fallbackPointer.y = mapped.y;
-      fallbackPointer.active = true;
+    running = true;
+    toggleButton.textContent = '暂停';
+    setMessage('', false);
+
+    if (Math.hypot(puck.vx, puck.vy) < 1) {
+      resetPuck(1);
     }
+  }
 
-    canvas.addEventListener('pointerenter', function (event) {
-      pointerInside = true;
-      moveFallbackPointer(event);
-    }, { signal: signal });
+  function pauseGame() {
+    running = false;
+    clearServeTimer();
+    toggleButton.textContent = '继续';
+    setMessage('已暂停', true);
+  }
 
-    canvas.addEventListener('pointermove', function (event) {
-      moveFallbackPointer(event);
-    }, { passive: true, signal: signal });
+  function resetGame() {
+    clearServeTimer();
+    running = false;
+    ended = false;
+    playerScore = 0;
+    aiScore = 0;
+    syncScore();
 
-    canvas.addEventListener('pointerleave', function () {
-      pointerInside = false;
-    }, { signal: signal });
+    player.x = 190;
+    player.y = HEIGHT / 2;
+    player.previousX = player.x;
+    player.previousY = player.y;
 
-    canvas.addEventListener('pointerdown', function (event) {
-      moveFallbackPointer(event);
+    ai.x = WIDTH - 135;
+    ai.y = HEIGHT / 2;
+    ai.previousX = ai.x;
+    ai.previousY = ai.y;
+
+    puck.x = WIDTH / 2;
+    puck.y = HEIGHT / 2;
+    puck.vx = 0;
+    puck.vy = 0;
+
+    toggleButton.textContent = '开始';
+    setMessage('点击“开始”', true);
+    render();
+  }
+
+  function updateFallbackPointer(event) {
+    var mapped = pointFromClient(event.clientX, event.clientY);
+    pointerInside = mapped.inside;
+    fallbackPointer.x = mapped.x;
+    fallbackPointer.y = mapped.y;
+    fallbackPointer.active = true;
+  }
+
+  canvas.addEventListener('pointerenter', function (event) {
+    pointerInside = true;
+    updateFallbackPointer(event);
+  }, { signal: signal });
+
+  canvas.addEventListener('pointermove', function (event) {
+    updateFallbackPointer(event);
+  }, { passive: true, signal: signal });
+
+  canvas.addEventListener('pointerleave', function () {
+    pointerInside = false;
+  }, { signal: signal });
+
+  canvas.addEventListener('pointerdown', function (event) {
+    updateFallbackPointer(event);
+
+    try {
       canvas.focus({ preventScroll: true });
+    } catch (error) {
+      canvas.focus();
+    }
 
-      if (!running && !ended) {
-        startGame();
-      }
-    }, { signal: signal });
+    if (!running && !ended) {
+      startGame();
+    }
+  }, { signal: signal });
 
-    canvas.addEventListener('keydown', function (event) {
-      if (event.key === ' ' || event.key === 'Enter') {
-        event.preventDefault();
-        if (running) pauseGame();
-        else startGame();
-        return;
-      }
-
-      var step = 24;
-
-      if (event.key === 'ArrowLeft' || event.key === 'a') player.x -= step;
-      else if (event.key === 'ArrowRight' || event.key === 'd') player.x += step;
-      else if (event.key === 'ArrowUp' || event.key === 'w') player.y -= step;
-      else if (event.key === 'ArrowDown' || event.key === 's') player.y += step;
-      else return;
-
+  canvas.addEventListener('keydown', function (event) {
+    if (event.key === ' ' || event.key === 'Enter') {
       event.preventDefault();
-      player.x = clamp(player.x, player.radius + 8, WIDTH - player.radius - 8);
-      player.y = clamp(player.y, player.radius + 8, HEIGHT - player.radius - 8);
-      fallbackPointer.active = false;
-    }, { signal: signal });
-
-    toggleButton.addEventListener('click', function () {
       if (running) pauseGame();
       else startGame();
-    }, { signal: signal });
-
-    resetButton.addEventListener('click', resetGame, { signal: signal });
-
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden && running) {
-        pauseGame();
-      }
-    }, { signal: signal });
-
-    if ('ResizeObserver' in window) {
-      resizeObserver = new ResizeObserver(resizeCanvas);
-      resizeObserver.observe(canvas);
-    } else {
-      window.addEventListener('resize', resizeCanvas, {
-        passive: true,
-        signal: signal
-      });
+      return;
     }
 
-    window.krosaPageCleanup = function () {
-      controller.abort();
+    var step = 24;
 
-      if (animationFrame) {
-        window.cancelAnimationFrame(animationFrame);
-      }
+    if (event.key === 'ArrowLeft' || event.key === 'a') player.x -= step;
+    else if (event.key === 'ArrowRight' || event.key === 'd') player.x += step;
+    else if (event.key === 'ArrowUp' || event.key === 'w') player.y -= step;
+    else if (event.key === 'ArrowDown' || event.key === 's') player.y += step;
+    else return;
 
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
+    event.preventDefault();
+    player.x = clamp(player.x, player.radius + 8, WIDTH - player.radius - 8);
+    player.y = clamp(player.y, player.radius + 8, HEIGHT - player.radius - 8);
+    fallbackPointer.active = false;
+  }, { signal: signal });
 
-      root.dataset.hockeyReady = 'false';
-    };
+  toggleButton.addEventListener('click', function () {
+    if (running) pauseGame();
+    else startGame();
+  }, { signal: signal });
 
-    resizeCanvas();
-    resetGame();
-    animationFrame = window.requestAnimationFrame(frame);
-  })();
+  resetButton.addEventListener('click', resetGame, { signal: signal });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden && running) pauseGame();
+  }, { signal: signal });
+
+  function cleanup() {
+    controller.abort();
+    clearServeTimer();
+
+    if (animationFrame) {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    }
+
+    root.dataset.hockeyReady = 'false';
+  }
+
+  if (typeof window.krosaRegisterPageCleanup === 'function') {
+    window.krosaRegisterPageCleanup(cleanup);
+  } else {
+    window.krosaPageCleanup = cleanup;
+  }
+
+  resetGame();
+  setMessage('点击“开始”', true);
+  animationFrame = window.requestAnimationFrame(frame);
+})();
 </script>
